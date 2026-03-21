@@ -1,0 +1,38 @@
+---
+description: 
+alwaysApply: true
+---
+
+# Pigeon-eye Project Rules & Standards
+
+## Tech Stack & Sponsor Alignment
+- Frontend: Next.js 15 (App Router), Tailwind CSS, Shadcn UI.
+- Backend: Convex (Strict schema, use Actions for AI/Heavy logic).
+- AI (Vision): Gemini 3.1 Flash-Lite (Primary), Featherless AI (Backup for open-weight models).
+- Automation: n8n (External webhooks for municipality escalation).
+- Voice: ElevenLabs (Voice feedback for reports and accessibility).
+- Observability: LangChain/LangSmith (Tracing for all LLM calls).
+
+## Architecture Patterns
+- Mobile-first PWA design.
+- Internationalization: next-intl (German/English). Heilbronn-centric.
+- Map: Leaflet (Default) for real-time issue tracking.
+- Type Safety: Zod for AI JSON validation and Convex schema.
+
+## Coding Style
+- RAW and real: No boilerplate sugarcoating. Direct, efficient code.
+- Functional components, Server Components by default.
+- Convex hooks only: useQuery, useMutation, useAction.
+- All UI text must be wrapped in translations (messages/de.json).
+
+## Subagent Roles
+- @Architect: Focuses on Convex schema and API bridges.
+- @Visionary: Handles Gemini image analysis and Featherless integration.
+- @Automator: Builds n8n webhooks and LangChain traces.
+- @Voice: Manages ElevenLabs speech synthesis.
+
+- Deployment: Vercel (Edge Runtime for AI routes where possible).
+- Environment Variables: All keys (CONVEX_URL, GEMINI_API_KEY, ELEVENLABS_API_KEY) must be accessed via process.env with safety checks.
+- Image Optimization: Use next/image for all UI elements.
+- Build Safety: Strict TypeScript checks. No 'any' in Convex actions.
+- PWA: Ensure manifest.json and service workers are Vercel-compatible (next-pwa).
