@@ -1,0 +1,79 @@
+{
+  "common": {
+    "appName": "Pigeon-eye",
+    "loading": "Loading…",
+    "error": "Something went wrong",
+    "retry": "Try again",
+    "cancel": "Cancel",
+    "save": "Save",
+    "submit": "Submit",
+    "back": "Back",
+    "close": "Close"
+  },
+  "nav": {
+    "map": "Map",
+    "report": "Report",
+    "leaderboard": "Leaderboard",
+    "profile": "Profile"
+  },
+  "map": {
+    "title": "Heilbronn City Reporter",
+    "noIssues": "No issues in this area",
+    "markerOpen": "Open",
+    "markerResolved": "Resolved",
+    "severity": "Severity",
+    "category": "Category",
+    "votes": "Votes",
+    "loadError": "Failed to load map",
+    "retryLoad": "Reload"
+  },
+  "report": {
+    "title": "Report Issue",
+    "takePhoto": "Take Photo",
+    "retakePhoto": "Retake Photo",
+    "analyzing": "AI is analyzing the image…",
+    "category": "Category",
+    "severity": "Severity",
+    "description": "Description",
+    "descriptionPlaceholder": "Describe the issue…",
+    "location": "Location",
+    "locationAuto": "Detected automatically",
+    "submitReport": "Submit Report",
+    "submitting": "Submitting…",
+    "success": "Report created successfully!",
+    "cameraError": "Could not start camera",
+    "cameraPermission": "Please allow camera access",
+    "offlineSaved": "Saved offline — will sync"
+  },
+  "voice": {
+    "thankYou": "Thank you, citizen! Your report has been recorded."
+  },
+  "leaderboard": {
+    "title": "Leaderboard",
+    "points": "Points",
+    "reports": "Reports",
+    "rank": "Rank",
+    "empty": "No participants yet"
+  },
+  "profile": {
+    "title": "Profile",
+    "myReports": "My Reports",
+    "totalPoints": "Total Points",
+    "memberSince": "Member since",
+    "signIn": "Sign In",
+    "signOut": "Sign Out"
+  },
+  "categories": {
+    "pothole": "Pothole",
+    "graffiti": "Graffiti",
+    "lighting": "Lighting",
+    "trash": "Trash",
+    "vegetation": "Vegetation",
+    "infrastructure": "Infrastructure",
+    "other": "Other"
+  },
+  "status": {
+    "open": "Open",
+    "resolved": "Resolved"
+  }
+}

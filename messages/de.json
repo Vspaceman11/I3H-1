@@ -1,0 +1,79 @@
+{
+  "common": {
+    "appName": "Pigeon-eye",
+    "loading": "Laden…",
+    "error": "Etwas ist schiefgelaufen",
+    "retry": "Erneut versuchen",
+    "cancel": "Abbrechen",
+    "save": "Speichern",
+    "submit": "Absenden",
+    "back": "Zurück",
+    "close": "Schließen"
+  },
+  "nav": {
+    "map": "Karte",
+    "report": "Melden",
+    "leaderboard": "Rangliste",
+    "profile": "Profil"
+  },
+  "map": {
+    "title": "Heilbronn Stadtmelder",
+    "noIssues": "Keine Meldungen in diesem Bereich",
+    "markerOpen": "Offen",
+    "markerResolved": "Gelöst",
+    "severity": "Schweregrad",
+    "category": "Kategorie",
+    "votes": "Stimmen",
+    "loadError": "Karte konnte nicht geladen werden",
+    "retryLoad": "Erneut laden"
+  },
+  "report": {
+    "title": "Problem melden",
+    "takePhoto": "Foto aufnehmen",
+    "retakePhoto": "Neues Foto",
+    "analyzing": "KI analysiert das Bild…",
+    "category": "Kategorie",
+    "severity": "Schweregrad",
+    "description": "Beschreibung",
+    "descriptionPlaceholder": "Beschreibe das Problem…",
+    "location": "Standort",
+    "locationAuto": "Wird automatisch erkannt",
+    "submitReport": "Meldung absenden",
+    "submitting": "Wird gesendet…",
+    "success": "Meldung erfolgreich erstellt!",
+    "cameraError": "Kamera konnte nicht gestartet werden",
+    "cameraPermission": "Bitte erlaube den Kamerazugriff",
+    "offlineSaved": "Offline gespeichert — wird synchronisiert"
+  },
+  "voice": {
+    "thankYou": "Dankeschön, Bürger! Ihre Meldung wurde erfasst."
+  },
+  "leaderboard": {
+    "title": "Rangliste",
+    "points": "Punkte",
+    "reports": "Meldungen",
+    "rank": "Rang",
+    "empty": "Noch keine Teilnehmer"
+  },
+  "profile": {
+    "title": "Profil",
+    "myReports": "Meine Meldungen",
+    "totalPoints": "Gesamtpunkte",
+    "memberSince": "Mitglied seit",
+    "signIn": "Anmelden",
+    "signOut": "Abmelden"
+  },
+  "categories": {
+    "pothole": "Schlagloch",
+    "graffiti": "Graffiti",
+    "lighting": "Beleuchtung",
+    "trash": "Müll",
+    "vegetation": "Vegetation",
+    "infrastructure": "Infrastruktur",
+    "other": "Sonstiges"
+  },
+  "status": {
+    "open": "Offen",
+    "resolved": "Gelöst"
+  }
+}
