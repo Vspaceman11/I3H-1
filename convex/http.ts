@@ -30,27 +30,10 @@ http.route({
       });
     }
 
-    const payload = {
-      issue_id: String(body.id || body.issue_id || ""),
-      user_id: String(body.user_id || ""),
-      severity: validateSeverity(body.severity),
-      status: String(body.status || "open"),
-      category: optStr(body.category),
-      ai_description: optStr(body.ai_description),
-      user_description: optStr(body.user_description),
-      latitude: optNum(body.latitude),
-      longitude: optNum(body.longitude),
-      address: optStr(body.address),
-      image_url: optStr(body.image_url),
-      priority_score: Number(body.priority_score) || 0,
-      reporter_points: optNum(body.reporter_points),
-      authority_type: optStr(body.authority_type),
-      safety_concern: body.safety_concern === true ? true : undefined,
-      created_at: optStr(body.created_at),
-      processed_at: String(body.processed_at || new Date().toISOString()),
-    };
+    const rawUserId = String(body.user_id || "");
+    const issueId = String(body.id || body.issue_id || "");
 
-    if (!payload.issue_id || !payload.user_id) {
+    if (!issueId || !rawUserId) {
       return new Response(
         JSON.stringify({ error: "issue_id and user_id are required" }),
         { status: 400, headers: { "Content-Type": "application/json" } }
@@ -58,6 +41,30 @@ http.route({
     }
 
     try {
+      const userResult = await ctx.runMutation(api.users.create, {
+        name: rawUserId,
+        email: rawUserId + "@pigeon-eye.local",
+      });
+
+      const payload = {
+        issue_id: issueId,
+        user_id: userResult.id,
+        severity: validateSeverity(body.severity),
+        status: validateStatus(body.status),
+        category: optStr(body.category),
+        ai_description: optStr(body.ai_description),
+        user_description: optStr(body.user_description),
+        latitude: optNum(body.latitude),
+        longitude: optNum(body.longitude),
+        address: optStr(body.address),
+        image_url: optStr(body.image_url),
+        priority_score: Number(body.priority_score) || 0,
+        authority_type: optStr(body.authority_type),
+        safety_concern: body.safety_concern === true ? true : undefined,
+        created_at: String(body.created_at || new Date().toISOString()),
+        processed_at: String(body.processed_at || new Date().toISOString()),
+      };
+
       const result = await ctx.runMutation(api.issues.create, payload);
       return new Response(
         JSON.stringify({ success: true, ...result }),
@@ -76,6 +83,12 @@ http.route({
 function validateSeverity(val: unknown): "EASY" | "MEDIUM" | "HIGH" {
   if (val === "EASY" || val === "MEDIUM" || val === "HIGH") return val;
   return "MEDIUM";
+}
+
+function validateStatus(val: unknown): "open" | "in_review" | "approved" | "rejected" | "resolved" {
+  const valid = ["open", "in_review", "approved", "rejected", "resolved"];
+  if (typeof val === "string" && valid.includes(val)) return val as "open";
+  return "open";
 }
 
 function optStr(val: unknown): string | undefined {
