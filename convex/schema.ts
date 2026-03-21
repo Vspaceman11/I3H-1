@@ -1,6 +1,12 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
+const severity = v.union(
+  v.literal("EASY"),
+  v.literal("MEDIUM"),
+  v.literal("HIGH"),
+);
+
 export default defineSchema({
   issues: defineTable({
     issue_id: v.string(),

@@ -8,7 +8,10 @@
  * @module
  */
 
+<<<<<<< HEAD
 import type * as http from "../http.js";
+=======
+>>>>>>> front-01
 import type * as issues from "../issues.js";
 
 import type {
@@ -18,7 +21,10 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+<<<<<<< HEAD
   http: typeof http;
+=======
+>>>>>>> front-01
   issues: typeof issues;
 }>;
 
