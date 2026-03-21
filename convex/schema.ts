@@ -1,35 +1,33 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
+const severity = v.union(
+  v.literal("EASY"),
+  v.literal("MEDIUM"),
+  v.literal("HIGH"),
+);
+
 export default defineSchema({
   issues: defineTable({
-    imageId: v.id("_storage"),
-    lat: v.float64(),
-    lng: v.float64(),
-    category: v.string(),
-    severity: v.float64(),
-    status: v.union(v.literal("open"), v.literal("resolved")),
-    reporterId: v.string(),
-    votes: v.float64(),
-    description: v.string(),
-    createdAt: v.float64(),
-    aiAnalysis: v.optional(
-      v.object({
-        category: v.string(),
-        severity: v.float64(),
-        description: v.string(),
-      })
-    ),
-    n8nNotified: v.optional(v.boolean()),
+    address: v.optional(v.string()),
+    ai_description: v.optional(v.string()),
+    authority_type: v.optional(v.string()),
+    category: v.optional(v.string()),
+    created_at: v.optional(v.string()),
+    image_url: v.optional(v.string()),
+    issue_id: v.string(),
+    latitude: v.optional(v.float64()),
+    longitude: v.optional(v.float64()),
+    priority_score: v.float64(),
+    processed_at: v.string(),
+    reporter_points: v.optional(v.float64()),
+    safety_concern: v.optional(v.boolean()),
+    severity,
+    status: v.string(),
+    user_description: v.optional(v.string()),
+    user_id: v.string(),
   })
-    .index("by_status", ["status"])
-    .index("by_reporter", ["reporterId"])
-    .index("by_severity", ["severity"]),
-
-  users: defineTable({
-    clerkId: v.string(),
-    name: v.string(),
-    points: v.float64(),
-    reportsCount: v.float64(),
-  }).index("by_clerkId", ["clerkId"]),
+    .index("by_issue_id", ["issue_id"])
+    .index("by_severity", ["severity"])
+    .index("by_status", ["status"]),
 });

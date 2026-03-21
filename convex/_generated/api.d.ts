@@ -8,11 +8,7 @@
  * @module
  */
 
-import type * as ai from "../ai.js";
 import type * as issues from "../issues.js";
-import type * as mutations from "../mutations.js";
-import type * as n8n from "../n8n.js";
-import type * as users from "../users.js";
 
 import type {
   ApiFromModules,
@@ -21,11 +17,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
-  ai: typeof ai;
   issues: typeof issues;
-  mutations: typeof mutations;
-  n8n: typeof n8n;
-  users: typeof users;
 }>;
 
 /**

@@ -1,93 +1,44 @@
-# Pigeon-eye — Community City Reporter
+# Pigeon-eye — City reporter (Heilbronn)
 
-Mobile-first PWA for reporting urban issues in Heilbronn. Built for the Heilbronn Hackathon.
+Mobile-first app: map, photo, reporting. **Business logic and AI run in n8n**; **Convex** stores issues and exposes a secure HTTP ingest for the workflow.
 
-## Tech Stack
+## Stack
 
-| Layer | Technology |
-|-------|-----------|
-| Frontend | Next.js 15 (App Router), Tailwind CSS v4, Shadcn UI |
-| Backend | Convex (real-time DB, file storage, actions) |
-| AI Vision | Google Gemini 2.0 Flash-Lite |
-| Voice | ElevenLabs TTS |
-| Automation | n8n (municipality escalation webhooks) |
-| i18n | next-intl (German / English) |
-| Deploy | Vercel |
+| Layer | Role |
+|-------|------|
+| Next.js | UI |
+| n8n | Webhook → validate → vision → severity branches → DB write + email on HIGH |
+| Convex | `issues` table, queries for the app, `POST /api/issues` for n8n ingest |
 
-## Quick Start
+## Setup
 
 ```bash
-# Install dependencies
 npm install
-
-# Set up environment variables
 cp .env.example .env.local
-# Fill in your API keys in .env.local
+# Set NEXT_PUBLIC_CONVEX_URL and ISSUES_INGEST_SECRET (also in Convex Dashboard)
 
-# Initialize Convex (creates deployment + generates types)
 npx convex dev
-
-# Start development server
 npm run dev
 ```
 
-## Environment Variables
+## Environment
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `NEXT_PUBLIC_CONVEX_URL` | Yes | Convex deployment URL |
-| `GEMINI_API_KEY` | Yes | Google Gemini API key (set in Convex dashboard) |
-| `ELEVENLABS_API_KEY` | No | ElevenLabs TTS key |
-| `N8N_WEBHOOK_URL` | No | n8n webhook endpoint (set in Convex dashboard) |
-| `N8N_WEBHOOK_SECRET` | No | Shared secret for webhook auth (set in Convex dashboard) |
+| Variable | Where | Purpose |
+|----------|--------|---------|
+| `NEXT_PUBLIC_CONVEX_URL` | `.env.local` | Convex client (browser) |
+| `ISSUES_INGEST_SECRET` | Convex Dashboard **and** n8n HTTP node headers | `X-Webhook-Secret` on `POST …/api/issues` |
 
-## Project Structure
+n8n workflow should call your Convex Site URL, e.g. `https://<deployment>.convex.site/api/issues`, with the same secret the backend expects.
 
-```
-app/
-  [locale]/          # i18n routing (de/en)
-    map/             # Leaflet map with issue markers
-    report/          # Camera capture + AI analysis + submit
-    leaderboard/     # User ranking by points
-    profile/         # User profile + stats
-components/
-  ui/                # Shadcn-style primitives (Button, Card, etc.)
-  map/               # IssueMap, MapErrorBoundary
-  report/            # CameraCapture, ReportForm
-  layout/            # BottomNav
-convex/
-  schema.ts          # issues + users tables
-  issues.ts          # CRUD queries/mutations
-  users.ts           # User queries/mutations
-  ai.ts              # Gemini vision action
-  n8n.ts             # Municipality escalation action
-hooks/
-  use-pigeon-voice.ts # ElevenLabs TTS hook
-messages/
-  de.json            # German translations
-  en.json            # English translations
-```
+## Convex
 
-## Auth
+- `convex/schema.ts` — `issues` aligned with n8n output (`EASY` / `MEDIUM` / `HIGH`, `issue_id`, etc.)
+- `convex/http.ts` — `POST /api/issues` (protected by `X-Webhook-Secret`)
+- `convex/issues.ts` — `list`, `getByIssueId`, internal `upsertFromN8n`
 
-Using Convex Auth (or Clerk — pick one per deployment). Currently defaults to anonymous reporting. Configure auth in `convex/` and middleware as needed.
-
-## Key Flows
-
-### Report Flow
-1. User opens camera → captures photo
-2. Photo uploaded to Convex storage
-3. Gemini action analyzes image → returns `{ category, severity, description }`
-4. User reviews AI suggestion, edits description, submits
-5. Issue created in DB with geolocation
-6. If `severity > 8` → n8n webhook fires → municipality email
-7. Voice feedback: "Dankeschön, Bürger!"
-
-### Build & Deploy
+## Build
 
 ```bash
-npm run build    # Vercel-optimized production build
-npm run start    # Local production server
+npm run build
+npm run start
 ```
-
-Push to connected Vercel branch for automatic deployment.

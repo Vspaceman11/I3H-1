@@ -1,29 +1,45 @@
-import type { Metadata, Viewport } from "next";
-import "./globals.css";
+import type { Metadata } from 'next'
+import { Geist, Geist_Mono } from 'next/font/google'
+import { Analytics } from '@vercel/analytics/next'
+import './globals.css'
+
+const _geist = Geist({ subsets: ["latin"] });
+const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Pigeon-eye — Community City Reporter",
-  description: "Report urban issues in Heilbronn. Built for Heilbronn Hackathon.",
-  manifest: "/manifest.json",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "default",
-    title: "Pigeon-eye",
+  title: 'TaskMap - Field Task Management',
+  description: 'Manage field tasks with map visualization and photo capture',
+  generator: 'v0.app',
+  icons: {
+    icon: [
+      {
+        url: '/icon-light-32x32.png',
+        media: '(prefers-color-scheme: light)',
+      },
+      {
+        url: '/icon-dark-32x32.png',
+        media: '(prefers-color-scheme: dark)',
+      },
+      {
+        url: '/icon.svg',
+        type: 'image/svg+xml',
+      },
+    ],
+    apple: '/apple-icon.png',
   },
-};
-
-export const viewport: Viewport = {
-  themeColor: "#10B981",
-  width: "device-width",
-  initialScale: 1,
-  maximumScale: 1,
-  viewportFit: "cover",
-};
+}
 
 export default function RootLayout({
   children,
-}: {
-  children: React.ReactNode;
-}) {
-  return children;
+}: Readonly<{
+  children: React.ReactNode
+}>) {
+  return (
+    <html lang="en">
+      <body className="font-sans antialiased">
+        {children}
+        <Analytics />
+      </body>
+    </html>
+  )
 }
