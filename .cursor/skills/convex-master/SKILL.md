@@ -9,7 +9,12 @@ description: Guides Convex schema design, auth configuration, file storage, sche
 
 Use this skill for **platform-level Convex**: `schema.ts`, auth setup, **file storage**, and **background execution** (scheduled and internal functions).
 
-For **client reactive flows**, optimistic updates, and Action→Mutation AI handoffs, use the **convex-reactive-backend** skill when it is available in the environment.
+## Client reactivity & AI handoffs
+
+- **`useQuery` / `useMutation` / `useAction`** on the client for live UI; keep args stable to limit subscription churn.
+- **Optimistic UI**: update local expectations in the mutation path where product needs instant feedback; reconcile on Convex confirmation.
+- **Action → mutation pattern**: actions call external APIs and heavy work; **persist results** via `ctx.runMutation` (internal or public) so the UI stays subscription-driven — never leave successful AI writes only in the action return value without DB backing when the UI must react.
+- For **Gemini / strict JSON** prompts and validation in actions, use the **vision-engineer** skill.
 
 ## schema.ts
 
@@ -74,5 +79,5 @@ Background task progress
 
 ## Coordination with other skills
 
-- **Reactive UI + AI pipeline**: skill `convex-reactive-backend`
-- **Gemini / strict JSON actions**: skill `gemini-3-1-orchestration`
+- **Vision prompts, image payload, provider fallback**: skill **vision-engineer**
+- **n8n webhooks, HMAC, LangChain in workflows**: skill **workflow-automator**

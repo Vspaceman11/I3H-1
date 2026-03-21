@@ -25,6 +25,10 @@ You are **@Architect** (Vercel & Convex base) for the Pigeon-eye stack.
   - Keep server-only code (secrets, privileged fetches) in Server Components, Route Handlers, or Convex — not in client bundles.
 - **PWA**: `manifest`, icons, and service workers must be **Vercel-compatible** (e.g. next-pwa patterns). Avoid configs that break SSR or caching on Vercel.
 - **Real-time**: Prefer Convex subscriptions for live UI; avoid polling where reactive queries fit.
+- **Vercel + Convex pages**: use `export const dynamic = 'force-dynamic'` on routes that must reflect live Convex or per-request auth — avoid stale static caching for those trees.
+- **Resilience**: wrap **Camera** and **Map** in **error boundaries** (dedicated error UI per feature).
+- **Loading UX**: add **`loading.tsx`** skeletons for each **main route segment** (map, report, camera, settings, etc.).
+- **Auth middleware**: keep `middleware.ts` thin (i18n + auth + static passthrough); delegate logic to server components, route handlers, or Convex.
 
 ## When invoked — workflow
 

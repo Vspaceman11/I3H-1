@@ -1,5 +1,5 @@
 ---
-description: 
+description: Pigeon-eye (Heilbronn) — stack, Vercel, PWA, i18n, Convex.
 alwaysApply: true
 ---
 
@@ -7,32 +7,49 @@ alwaysApply: true
 
 ## Tech Stack & Sponsor Alignment
 - Frontend: Next.js 15 (App Router), Tailwind CSS, Shadcn UI.
-- Backend: Convex (Strict schema, use Actions for AI/Heavy logic).
-- AI (Vision): Gemini 3.1 Flash-Lite (Primary), Featherless AI (Backup for open-weight models).
-- Automation: n8n (External webhooks for municipality escalation).
-- Voice: ElevenLabs (Voice feedback for reports and accessibility).
-- Observability: LangChain/LangSmith (Tracing for all LLM calls).
+- Backend: Convex (strict schema; **Actions** for AI, large uploads, and external HTTP).
+- AI (Vision): Gemini 3.1 Flash-Lite (primary), Featherless AI (backup, open-weight vision).
+- Automation: n8n (webhooks for municipality escalation); trigger with `fetch()` and a **secret header** (or HMAC) from Convex **actions** only.
+- Voice: ElevenLabs; synthesize server-side; browser plays buffers via **`HTMLAudioElement` / `Audio`** (or streaming `MediaSource` when needed).
+- Observability: LangChain/LangSmith for all LLM paths.
+
+## Auth
+- Use **Clerk** or **Convex Auth** — pick one per deployment; document the choice in `README` or team notes.
+- Keep **`middleware.ts`** minimal: locale (next-intl), auth session/protection, and static asset passthrough — no business logic or heavy work.
 
 ## Architecture Patterns
-- Mobile-first PWA design.
-- Internationalization: next-intl (German/English). Heilbronn-centric.
-- Map: Leaflet (Default) for real-time issue tracking.
-- Type Safety: Zod for AI JSON validation and Convex schema.
+- Mobile-first **PWA** (next-pwa, Vercel-compatible SW/manifest).
+- **next-intl**: German and English; **all user-visible copy** in `messages/de.json` and `messages/en.json` with matching keys (see @International).
+- Map: **Leaflet** for issue markers and real-time views.
+- Zod for AI JSON and Convex validators where applicable.
+
+## Vercel Readiness (App Router)
+- Pages/routes that depend on **live Convex** or request-specific auth: set `export const dynamic = 'force-dynamic'` (or equivalent) so data is not incorrectly statically cached.
+- **Error boundaries**: wrap **Camera** and **Map** (and other fragile client surfaces) in dedicated error UI — do not let one widget crash the whole report flow.
+- **`loading.tsx`**: provide skeletons for **every main route segment** (map, report, camera, settings, etc.) for perceived performance.
+
+## AI & Automation Flow
+- **Gemini / vision**: heavy analysis runs in a **Convex action** (not a long Vercel serverless handler) to avoid the ~10s function limit on large images.
+- **n8n**: only from Convex actions; minimal JSON payload; idempotency key; failures recorded on documents, not blocking the user mutation path.
+
+## PWA & Offline Reporting
+- `manifest.json`, icons, and SW must work on **Vercel** (next-pwa defaults + verify build).
+- **Report offline**: if the network is unavailable, **persist draft reports in client state** (e.g. IndexedDB or persistent store); **sync to Convex** when back online; surface sync status in UI (i18n).
 
 ## Coding Style
-- RAW and real: No boilerplate sugarcoating. Direct, efficient code.
-- Functional components, Server Components by default.
-- Convex hooks only: useQuery, useMutation, useAction.
-- All UI text must be wrapped in translations (messages/de.json).
+- RAW and direct: no decorative boilerplate.
+- Default **Server Components**; `'use client'` only when hooks, browser APIs, or Convex React hooks are required.
+- Convex client: **useQuery**, **useMutation**, **useAction** only — no ad-hoc serverless DB from the browser.
+- **next/image** for static UI imagery; camera/map streams use appropriate non-`Image` patterns.
+- Strict TypeScript; **no `any`** in Convex actions.
 
 ## Subagent Roles
-- @Architect: Focuses on Convex schema and API bridges.
-- @Visionary: Handles Gemini image analysis and Featherless integration.
-- @Automator: Builds n8n webhooks and LangChain traces.
-- @Voice: Manages ElevenLabs speech synthesis.
+- **@Architect**: App structure, Convex schema/API boundaries, Vercel deploy, PWA config, RSC vs client splits.
+- **@Visionary**: Gemini/Featherless vision, Convex actions, strict JSON + Zod.
+- **@Automator**: n8n webhooks, LangChain/LangSmith, escalation contracts.
+- **@Voice**: ElevenLabs, browser audio UX, phrase caching.
+- **@International**: next-intl, `messages/de.json` + `messages/en.json`, Leaflet/Shadcn copy and a11y strings.
 
-- Deployment: Vercel (Edge Runtime for AI routes where possible).
-- Environment Variables: All keys (CONVEX_URL, GEMINI_API_KEY, ELEVENLABS_API_KEY) must be accessed via process.env with safety checks.
-- Image Optimization: Use next/image for all UI elements.
-- Build Safety: Strict TypeScript checks. No 'any' in Convex actions.
-- PWA: Ensure manifest.json and service workers are Vercel-compatible (next-pwa).
+## Deployment & Environment
+- Deploy: **Vercel** (`git push` to connected branch); Edge where it helps, Node when APIs require it.
+- Secrets: **process.env** with guards (`CONVEX_URL`, `GEMINI_API_KEY`, `ELEVENLABS_API_KEY`, webhook secrets, auth keys). Never expose in client bundles.
