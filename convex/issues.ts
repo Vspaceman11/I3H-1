@@ -1,75 +1,37 @@
-import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
-
-export const list = query({
-  args: {
-    status: v.optional(v.union(v.literal("open"), v.literal("resolved"))),
-  },
-  handler: async (ctx, args) => {
-    if (args.status) {
-      return ctx.db
-        .query("issues")
-        .withIndex("by_status", (q) => q.eq("status", args.status!))
-        .order("desc")
-        .collect();
-    }
-    return ctx.db.query("issues").order("desc").collect();
-  },
-});
-
-export const getById = query({
-  args: { id: v.id("issues") },
-  handler: async (ctx, args) => {
-    return ctx.db.get(args.id);
-  },
-});
+import { mutation } from "./_generated/server";
 
 export const create = mutation({
   args: {
-    imageId: v.id("_storage"),
-    lat: v.float64(),
-    lng: v.float64(),
-    category: v.string(),
-    severity: v.float64(),
-    description: v.string(),
-    reporterId: v.string(),
+    issue_id: v.string(),
+    user_id: v.string(),
+    severity: v.union(v.literal("EASY"), v.literal("MEDIUM"), v.literal("HIGH")),
+    status: v.string(),
+    category: v.optional(v.string()),
+    ai_description: v.optional(v.string()),
+    user_description: v.optional(v.string()),
+    latitude: v.optional(v.number()),
+    longitude: v.optional(v.number()),
+    address: v.optional(v.string()),
+    image_url: v.optional(v.string()),
+    priority_score: v.number(),
+    reporter_points: v.optional(v.number()),
+    authority_type: v.optional(v.string()),
+    safety_concern: v.optional(v.boolean()),
+    created_at: v.optional(v.string()),
+    processed_at: v.string(),
   },
   handler: async (ctx, args) => {
-    const issueId = await ctx.db.insert("issues", {
-      ...args,
-      status: "open",
-      votes: 0,
-      createdAt: Date.now(),
-    });
-    return issueId;
-  },
-});
+    const existing = await ctx.db
+      .query("issues")
+      .withIndex("by_issue_id", (q) => q.eq("issue_id", args.issue_id))
+      .first();
 
-export const vote = mutation({
-  args: { id: v.id("issues") },
-  handler: async (ctx, args) => {
-    const issue = await ctx.db.get(args.id);
-    if (!issue) throw new Error("Issue not found");
-    await ctx.db.patch(args.id, { votes: issue.votes + 1 });
-  },
-});
+    if (existing) {
+      return { id: existing._id, deduplicated: true };
+    }
 
-export const resolve = mutation({
-  args: { id: v.id("issues") },
-  handler: async (ctx, args) => {
-    await ctx.db.patch(args.id, { status: "resolved" });
-  },
-});
-
-export const generateUploadUrl = mutation({
-  handler: async (ctx) => {
-    return await ctx.storage.generateUploadUrl();
-  },
-});
-
-export const getImageUrl = query({
-  args: { imageId: v.id("_storage") },
-  handler: async (ctx, args) => {
-    return await ctx.storage.getUrl(args.imageId);
+    const id = await ctx.db.insert("issues", args);
+    return { id, deduplicated: false };
   },
 });
