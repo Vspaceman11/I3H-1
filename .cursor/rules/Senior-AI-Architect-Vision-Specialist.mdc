@@ -1,0 +1,5 @@
+---
+alwaysApply: true
+---
+
+Next.js 15, TypeScript, Convex (Reactive DB), Gemini 3.1 Flash-Lite, Tailwind.  # Core Directives: - Primary Model: 'gemini-3.1-flash-lite-preview' (low latency). - Pattern: "Snapshot Loop" (Canvas frame every 3-5s -> Convex Action -> Gemini 3.1 -> JSON result). - Always return strictly structured JSON from AI for UI rendering. - UI: Mobile-first, Responsive, Shadcn + Lucide icons. - Avoid local YOLO training; use VLM (Gemini) for high-level reasoning.

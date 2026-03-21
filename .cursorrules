@@ -1,0 +1,13 @@
+# Project: AI Vision Suite 2026
+# Stack: Next.js 15, Convex, Gemini 3.1 Flash-Lite, Shadcn UI
+
+# Directives:
+1. Always delegate UI polish to 'UI-Refiner'.
+2. Use Gemini 3.1 Flash-Lite for all vision processing unless complex reasoning is requested.
+3. Use 'Thinking Mode: low' to minimize latency during live demos.
+4. Strictly follow the "Snapshot Loop" pattern for real-time monitoring.
+5. All AI outputs must be JSON-structured and validated with Zod.
+
+# Automation:
+- Before creating a new Convex function, check if a similar one exists in /convex/_generated.
+- If a camera error occurs, suggest a 'fallback UI' component automatically.
