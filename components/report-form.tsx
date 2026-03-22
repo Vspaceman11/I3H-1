@@ -148,7 +148,7 @@ export function ReportForm({ file, previewUrl, onBack, onDone }: ReportFormProps
 
         <div className="space-y-2">
           <Label>Location</Label>
-          <div className="flex items-center gap-2 rounded-lg border border-input bg-background px-3 py-2 text-sm">
+              <div className="flex items-center gap-2 rounded-lg border border-input bg-field px-3 py-2 text-sm">
             <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
             {location ? (
               <span className="text-foreground">

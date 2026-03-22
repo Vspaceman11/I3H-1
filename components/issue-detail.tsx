@@ -17,6 +17,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { MapOverlayShell } from '@/components/map-overlay-shell'
+import { getDisplayAnalysisStatus } from '@/lib/effective-analysis-status'
 
 interface IssueDetailProps {
   issueId: Id<"issues">
@@ -51,7 +52,7 @@ export function IssueDetail({ issueId, onBack }: IssueDetailProps) {
     )
   } else {
     const sev = severityConfig[issue.severity]
-    const analysisStatus = issue.analysisStatus ?? (issue.ai_description ? 'done' : null)
+    const analysisStatus = getDisplayAnalysisStatus(issue)
 
     const handleRetry = () => {
       if (!issue.storageId) return
@@ -153,12 +154,14 @@ export function IssueDetail({ issueId, onBack }: IssueDetailProps) {
                 </div>
               )}
 
-              {issue.ai_description && (
-                <div className="rounded-lg bg-muted p-3">
+              {issue.ai_description ? (
+                <div className="rounded-lg bg-field p-3">
                   <p className="mb-1 text-xs font-medium text-muted-foreground">AI Description</p>
                   <p className="text-sm">{issue.ai_description}</p>
                 </div>
-              )}
+              ) : analysisStatus === 'done' ? (
+                <p className="text-sm text-muted-foreground">No AI summary was stored for this report.</p>
+              ) : null}
 
               {issue.safety_concern && (
                 <div className="flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2">
@@ -169,7 +172,7 @@ export function IssueDetail({ issueId, onBack }: IssueDetailProps) {
             </div>
 
             {issue.user_description && (
-              <div className="rounded-lg border border-border p-3">
+              <div className="rounded-lg border border-border bg-field p-3">
                 <p className="mb-1 text-xs font-medium text-muted-foreground">User Description</p>
                 <p className="text-sm">{issue.user_description}</p>
               </div>
