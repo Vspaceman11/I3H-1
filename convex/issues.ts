@@ -37,7 +37,8 @@ async function mergeIngestIntoIssueByConvexDocId(
   const existing = await ctx.db.get(targetId);
   if (!existing) return null;
 
-  const points = POINTS_BY_SEVERITY[args.severity];
+  const isVerified = args.status !== "rejected";
+  const points = isVerified ? POINTS_BY_SEVERITY[args.severity] : 0;
   const pointsDelta = points - existing.points_awarded;
 
   await ctx.db.patch(targetId, {
@@ -67,7 +68,7 @@ async function mergeIngestIntoIssueByConvexDocId(
     const user = await ctx.db.get(existing.user_id);
     if (user) {
       await ctx.db.patch(existing.user_id, {
-        total_points: user.total_points + pointsDelta,
+        total_points: Math.max(0, user.total_points + pointsDelta),
       });
     }
   }
@@ -142,18 +143,21 @@ export const create = mutation({
       return { id: existing._id, deduplicated: true, points_awarded: 0 };
     }
 
-    const points = POINTS_BY_SEVERITY[args.severity];
+    const isVerified = args.status !== "rejected";
+    const points = isVerified ? POINTS_BY_SEVERITY[args.severity] : 0;
 
     const id = await ctx.db.insert("issues", {
       ...args,
       points_awarded: points,
     });
 
-    const user = await ctx.db.get(args.user_id);
-    if (user) {
-      await ctx.db.patch(args.user_id, {
-        total_points: user.total_points + points,
-      });
+    if (points > 0) {
+      const user = await ctx.db.get(args.user_id);
+      if (user) {
+        await ctx.db.patch(args.user_id, {
+          total_points: user.total_points + points,
+        });
+      }
     }
 
     return { id, deduplicated: false, points_awarded: points };
@@ -200,10 +204,20 @@ export const resolveIssueForHttpPost = internalQuery({
 export const listByUser = query({
   args: { user_id: v.id("users") },
   handler: async (ctx, args) => {
-    return await ctx.db
+    const issues = await ctx.db
       .query("issues")
       .withIndex("by_user", (q) => q.eq("user_id", args.user_id))
       .collect();
+    const withUrls = await Promise.all(
+      issues.map(async (issue) => {
+        let url: string | null = null;
+        if (issue.storageId) {
+          url = await ctx.storage.getUrl(issue.storageId);
+        }
+        return { ...issue, resolvedImageUrl: url ?? issue.image_url ?? null };
+      }),
+    );
+    return withUrls;
   },
 });
 
@@ -233,7 +247,24 @@ export const approve = mutation({
     if (issue.status !== "open" && issue.status !== "in_review") {
       throw new Error(`Cannot approve issue with status "${issue.status}"`);
     }
-    await ctx.db.patch(args.id, { status: "approved" });
+
+    const points = POINTS_BY_SEVERITY[issue.severity];
+    const pointsDelta = points - issue.points_awarded;
+
+    await ctx.db.patch(args.id, {
+      status: "approved",
+      points_awarded: points,
+    });
+
+    if (pointsDelta > 0) {
+      const user = await ctx.db.get(issue.user_id);
+      if (user) {
+        await ctx.db.patch(issue.user_id, {
+          total_points: user.total_points + pointsDelta,
+        });
+      }
+    }
+
     return { success: true };
   },
 });
@@ -406,9 +437,14 @@ export const updateAnalysis = internalMutation({
     const existing = await ctx.db.get(issueId);
     if (!existing) throw new Error(`Issue ${issueId} not found`);
 
-    const points = fields.severity
+    const effectiveStatus = fields.status ?? existing.status;
+    const isVerified = effectiveStatus !== "rejected";
+
+    const severityPoints = fields.severity
       ? POINTS_BY_SEVERITY[fields.severity]
-      : existing.points_awarded;
+      : POINTS_BY_SEVERITY[existing.severity];
+    const points = isVerified ? severityPoints : 0;
+    const pointsDelta = points - existing.points_awarded;
 
     await ctx.db.patch(issueId, {
       ...fields,
@@ -418,11 +454,11 @@ export const updateAnalysis = internalMutation({
       analysisError: undefined,
     });
 
-    if (fields.severity && points > existing.points_awarded) {
+    if (pointsDelta !== 0) {
       const user = await ctx.db.get(existing.user_id);
       if (user) {
         await ctx.db.patch(existing.user_id, {
-          total_points: user.total_points + (points - existing.points_awarded),
+          total_points: Math.max(0, user.total_points + pointsDelta),
         });
       }
     }

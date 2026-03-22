@@ -5,27 +5,21 @@ import { useQuery } from 'convex/react'
 import { useAuthActions } from '@convex-dev/auth/react'
 import { useConvexAuth } from 'convex/react'
 import { api } from '@/convex/_generated/api'
-import { CheckCircle, Clock, AlertTriangle, LogOut, User, UserPlus } from 'lucide-react'
+import type { Id } from '@/convex/_generated/dataModel'
+import {
+  CheckCircle, Clock, AlertTriangle, LogOut, User, UserPlus,
+  Trophy, FileText, ChevronRight,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { MapOverlayShell } from '@/components/map-overlay-shell'
 
-interface Issue {
-  _id: string
-  _creationTime: number
-  status: string
-  analysisStatus?: string | null
-  category?: string | null
-  ai_description?: string | null
-  severity: string
-}
-
 interface UserProfileProps {
-  issues: Issue[]
   onBack: () => void
+  onIssueClick: (id: Id<"issues">) => void
 }
 
-export function UserProfile({ issues, onBack }: UserProfileProps) {
+export function UserProfile({ onBack, onIssueClick }: UserProfileProps) {
   const { signOut } = useAuthActions()
   const { isLoading: authLoading, isAuthenticated: convexAuthenticated } = useConvexAuth()
   const currentUser = useQuery(api.users.currentUser)
@@ -39,10 +33,11 @@ export function UserProfile({ issues, onBack }: UserProfileProps) {
     authLoading || (convexAuthenticated && currentUser === undefined)
   const sessionWithoutUser =
     !authLoading && convexAuthenticated && currentUser === null
-  const displayIssues = isAuthenticated ? userIssues : issues
-  const resolved = displayIssues.filter((i) => i.status === 'resolved' || i.status === 'approved').length
-  const open = displayIssues.filter((i) => i.status === 'open').length
-  const analyzing = displayIssues.filter(
+
+  const totalReports = userIssues.length
+  const resolved = userIssues.filter((i) => i.status === 'resolved' || i.status === 'approved').length
+  const open = userIssues.filter((i) => i.status === 'open').length
+  const analyzing = userIssues.filter(
     (i) => i.analysisStatus === 'pending' || i.analysisStatus === 'analyzing',
   ).length
 
@@ -52,12 +47,11 @@ export function UserProfile({ issues, onBack }: UserProfileProps) {
     { label: 'Analyzing', value: analyzing, icon: Clock, color: 'text-blue-500' },
   ]
 
-  const recent = [...displayIssues]
+  const recent = [...userIssues]
     .sort((a, b) => b._creationTime - a._creationTime)
     .slice(0, 5)
 
   const displayName = currentUser?.name ?? 'Citizen Reporter'
-  const displayLocation = 'Heilbronn'
   const avatarSrc = currentUser?.image ?? currentUser?.avatar_url ?? undefined
   const avatarFallback = displayName.split(/\s+/).map((n) => n[0]).join('').slice(0, 2).toUpperCase() || 'PE'
 
@@ -79,6 +73,7 @@ export function UserProfile({ issues, onBack }: UserProfileProps) {
             </div>
           ) : isAuthenticated ? (
             <>
+              {/* Avatar card */}
               <div className="rounded-xl bg-card border border-border p-6">
                 <div className="flex items-center gap-4">
                   <Avatar className="h-16 w-16">
@@ -88,19 +83,27 @@ export function UserProfile({ issues, onBack }: UserProfileProps) {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <h2 className="text-xl font-semibold text-card-foreground truncate">{displayName}</h2>
-                      <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-                        Signed in
-                      </span>
                     </div>
-                    <p className="text-sm text-muted-foreground truncate">{currentUser?.email ?? displayLocation}</p>
-                    <p className="text-xs text-muted-foreground">{displayIssues.length} reports</p>
-                    {currentUser && (
-                      <p className="text-xs text-muted-foreground mt-0.5">{currentUser.total_points} points</p>
-                    )}
+                    <p className="text-sm text-muted-foreground truncate">{currentUser?.email ?? 'Heilbronn'}</p>
                   </div>
                 </div>
               </div>
 
+              {/* Points & reports summary */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-xl bg-card border border-border p-4 text-center">
+                  <Trophy className="mx-auto h-6 w-6 text-amber-500" />
+                  <p className="mt-2 text-2xl font-bold text-card-foreground">{currentUser.total_points}</p>
+                  <p className="text-xs text-muted-foreground">Points</p>
+                </div>
+                <div className="rounded-xl bg-card border border-border p-4 text-center">
+                  <FileText className="mx-auto h-6 w-6 text-primary" />
+                  <p className="mt-2 text-2xl font-bold text-card-foreground">{totalReports}</p>
+                  <p className="text-xs text-muted-foreground">Reports</p>
+                </div>
+              </div>
+
+              {/* Stats grid */}
               <div className="grid grid-cols-3 gap-3">
                 {stats.map((stat) => {
                   const Icon = stat.icon
@@ -114,6 +117,7 @@ export function UserProfile({ issues, onBack }: UserProfileProps) {
                 })}
               </div>
 
+              {/* Recent reports */}
               <div className="rounded-xl bg-card border border-border">
                 <div className="border-b border-border p-4">
                   <h3 className="font-semibold text-card-foreground">Recent Reports</h3>
@@ -123,9 +127,14 @@ export function UserProfile({ issues, onBack }: UserProfileProps) {
                     <p className="p-4 text-sm text-muted-foreground">No reports yet</p>
                   )}
                   {recent.map((issue) => (
-                    <div key={issue._id} className="flex items-center gap-3 p-4">
+                    <button
+                      key={issue._id}
+                      type="button"
+                      onClick={() => onIssueClick(issue._id)}
+                      className="flex w-full items-center gap-3 p-4 text-left hover:bg-muted/50 transition-colors"
+                    >
                       <div
-                        className={`h-2 w-2 rounded-full ${
+                        className={`h-2 w-2 shrink-0 rounded-full ${
                           issue.status === 'resolved' || issue.status === 'approved'
                             ? 'bg-green-500'
                             : issue.analysisStatus === 'error'
@@ -137,16 +146,28 @@ export function UserProfile({ issues, onBack }: UserProfileProps) {
                         <p className="truncate font-medium text-card-foreground">
                           {issue.category ?? 'Pending analysis'}
                         </p>
-                        <p className="text-xs text-muted-foreground capitalize">{issue.status}</p>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span className="capitalize">{issue.status}</span>
+                          {issue.points_awarded > 0 && (
+                            <>
+                              <span>·</span>
+                              <span className="text-amber-500 font-medium">+{issue.points_awarded} pts</span>
+                            </>
+                          )}
+                        </div>
                       </div>
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(issue._creationTime).toLocaleDateString()}
-                      </span>
-                    </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(issue._creationTime).toLocaleDateString()}
+                        </span>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    </button>
                   ))}
                 </div>
               </div>
 
+              {/* Sign out */}
               <div className="rounded-xl bg-card border border-border">
                 <button
                   type="button"
