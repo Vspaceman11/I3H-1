@@ -94,7 +94,7 @@ export function ReportForm({ file, previewUrl, onBack, onDone }: ReportFormProps
       onClose={onBack}
       footer={
         <div className="flex items-center justify-between gap-2">
-          <Button variant="outline" type="button" onClick={onBack} disabled={isUploading}>
+          <Button variant="secondary" type="button" onClick={onBack} disabled={isUploading}>
             Cancel
           </Button>
           <Button type="submit" form={FORM_ID} disabled={isUploading}>
@@ -127,7 +127,7 @@ export function ReportForm({ file, previewUrl, onBack, onDone }: ReportFormProps
         <div className="flex items-center gap-2 rounded-lg bg-primary/10 p-3">
           <Sparkles className="h-5 w-5 shrink-0 text-primary" />
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-foreground">AI Analysis</p>
+            <p className="text-sm font-medium text-card-foreground">AI Analysis</p>
             <p className="text-xs text-muted-foreground">
               The photo will be analyzed by AI after upload
             </p>
@@ -150,7 +150,7 @@ export function ReportForm({ file, previewUrl, onBack, onDone }: ReportFormProps
               <div className="flex items-center gap-2 rounded-lg border border-input bg-field px-3 py-2 text-sm">
             <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
             {location ? (
-              <span className="text-foreground">
+              <span className="text-field-foreground">
                 {location.lat.toFixed(4)}, {location.lng.toFixed(4)}
               </span>
             ) : (

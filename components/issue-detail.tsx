@@ -25,9 +25,9 @@ interface IssueDetailProps {
 }
 
 const severityConfig = {
-  EASY: { label: 'Low', color: 'bg-green-500', textColor: 'text-green-700' },
-  MEDIUM: { label: 'Medium', color: 'bg-amber-500', textColor: 'text-amber-700' },
-  HIGH: { label: 'High', color: 'bg-red-500', textColor: 'text-red-700' },
+  EASY: { label: 'Low', color: 'bg-green-500', textColor: 'text-green-400' },
+  MEDIUM: { label: 'Medium', color: 'bg-amber-500', textColor: 'text-amber-300' },
+  HIGH: { label: 'High', color: 'bg-red-500', textColor: 'text-red-400' },
 } as const
 
 export function IssueDetail({ issueId, onBack }: IssueDetailProps) {
@@ -75,12 +75,12 @@ export function IssueDetail({ issueId, onBack }: IssueDetailProps) {
                 </Badge>
               )}
               {analysisStatus === 'analyzing' && (
-                <Badge variant="secondary" className="gap-1 bg-blue-100 text-blue-700">
+                <Badge variant="secondary" className="gap-1 bg-primary/20 text-primary">
                   <Loader2 className="h-3 w-3 animate-spin" /> Analyzing…
                 </Badge>
               )}
               {analysisStatus === 'done' && (
-                <Badge variant="secondary" className="gap-1 bg-green-100 text-green-700">
+                <Badge variant="secondary" className="gap-1 bg-emerald-500/15 text-emerald-400">
                   <CheckCircle2 className="h-3 w-3" /> Done
                 </Badge>
               )}
@@ -90,7 +90,9 @@ export function IssueDetail({ issueId, onBack }: IssueDetailProps) {
                 </Badge>
               )}
               {!analysisStatus && (
-                <Badge variant="outline" className="capitalize">{issue.status}</Badge>
+                <Badge variant="default" className="capitalize">
+                  {issue.status}
+                </Badge>
               )}
             </div>
 
@@ -101,11 +103,11 @@ export function IssueDetail({ issueId, onBack }: IssueDetailProps) {
             )}
 
             {(analysisStatus === 'pending' || analysisStatus === 'analyzing') && (
-              <div className="flex items-center gap-3 rounded-lg bg-blue-50 p-4">
-                <Loader2 className="h-5 w-5 shrink-0 animate-spin text-blue-600" />
+              <div className="flex items-center gap-3 rounded-lg border border-primary/25 bg-primary/10 p-4">
+                <Loader2 className="h-5 w-5 shrink-0 animate-spin text-primary" />
                 <div>
-                  <p className="font-medium text-blue-900">AI is analyzing your photo…</p>
-                  <p className="text-sm text-blue-700">Results will appear here automatically</p>
+                  <p className="font-medium text-card-foreground">AI is analyzing your photo…</p>
+                  <p className="text-sm text-muted-foreground">Results will appear here automatically</p>
                 </div>
               </div>
             )}
@@ -120,7 +122,7 @@ export function IssueDetail({ issueId, onBack }: IssueDetailProps) {
                   <p className="text-sm text-destructive/80">{issue.analysisError}</p>
                 )}
                 {issue.storageId && (
-                  <Button variant="outline" size="sm" type="button" onClick={handleRetry} className="self-start">
+                  <Button variant="secondary" size="sm" type="button" onClick={handleRetry} className="self-start">
                     <RefreshCw className="mr-2 h-4 w-4" />
                     Retry analysis
                   </Button>
@@ -142,7 +144,7 @@ export function IssueDetail({ issueId, onBack }: IssueDetailProps) {
                 <div className="flex items-center gap-2">
                   <Tag className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm text-muted-foreground">Category:</span>
-                  <span className="text-sm font-medium">{issue.category}</span>
+                  <span className="text-sm font-medium text-card-foreground">{issue.category}</span>
                 </div>
               )}
 
@@ -150,31 +152,31 @@ export function IssueDetail({ issueId, onBack }: IssueDetailProps) {
                 <div className="flex items-center gap-2">
                   <BarChart3 className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm text-muted-foreground">Priority:</span>
-                  <span className="text-sm font-medium">{issue.priority_score}/10</span>
+                  <span className="text-sm font-medium text-card-foreground">{issue.priority_score}/10</span>
                 </div>
               )}
 
               {issue.ai_description ? (
-                <div className="rounded-lg bg-field p-3">
+                <div className="rounded-lg border border-border/80 bg-field p-3">
                   <p className="mb-1 text-xs font-medium text-muted-foreground">AI Description</p>
-                  <p className="text-sm">{issue.ai_description}</p>
+                  <p className="text-sm text-field-foreground">{issue.ai_description}</p>
                 </div>
               ) : analysisStatus === 'done' ? (
                 <p className="text-sm text-muted-foreground">No AI summary was stored for this report.</p>
               ) : null}
 
               {issue.safety_concern && (
-                <div className="flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2">
-                  <AlertTriangle className="h-4 w-4 text-red-600" />
-                  <span className="text-sm font-medium text-red-700">Safety concern detected</span>
+                <div className="flex items-center gap-2 rounded-lg border border-red-500/35 bg-red-950/35 px-3 py-2">
+                  <AlertTriangle className="h-4 w-4 text-red-400" />
+                  <span className="text-sm font-medium text-red-200">Safety concern detected</span>
                 </div>
               )}
             </div>
 
             {issue.user_description && (
-              <div className="rounded-lg border border-border bg-field p-3">
+              <div className="rounded-lg border border-border/80 bg-field p-3">
                 <p className="mb-1 text-xs font-medium text-muted-foreground">User Description</p>
-                <p className="text-sm">{issue.user_description}</p>
+                <p className="text-sm text-field-foreground">{issue.user_description}</p>
               </div>
             )}
 

@@ -44,7 +44,7 @@ export function UserProfile({ onBack, onIssueClick }: UserProfileProps) {
   const stats = [
     { label: 'Resolved', value: resolved, icon: CheckCircle, color: 'text-green-500' },
     { label: 'Open', value: open, icon: AlertTriangle, color: 'text-amber-500' },
-    { label: 'Analyzing', value: analyzing, icon: Clock, color: 'text-blue-500' },
+    { label: 'Analyzing', value: analyzing, icon: Clock, color: 'text-primary' },
   ]
 
   const recent = [...userIssues]
@@ -67,7 +67,7 @@ export function UserProfile({ onBack, onIssueClick }: UserProfileProps) {
             <div className="rounded-xl bg-card border border-border p-6 text-center text-sm text-muted-foreground">
               <p className="font-medium text-destructive">Could not load your profile</p>
               <p className="mt-2">Try signing out and signing in again.</p>
-              <Button type="button" variant="outline" className="mt-4" onClick={() => signOut()}>
+              <Button type="button" variant="secondary" className="mt-4" onClick={() => signOut()}>
                 Sign out
               </Button>
             </div>
@@ -82,7 +82,10 @@ export function UserProfile({ onBack, onIssueClick }: UserProfileProps) {
                   </Avatar>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <h2 className="text-xl font-semibold text-card-foreground truncate">{displayName}</h2>
+                      <h2 className="text-xl font-extrabold tracking-tight text-card-foreground truncate">{displayName}</h2>
+                      <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                        Signed in
+                      </span>
                     </div>
                     <p className="text-sm text-muted-foreground truncate">{currentUser?.email ?? 'Heilbronn'}</p>
                   </div>
@@ -120,7 +123,7 @@ export function UserProfile({ onBack, onIssueClick }: UserProfileProps) {
               {/* Recent reports */}
               <div className="rounded-xl bg-card border border-border">
                 <div className="border-b border-border p-4">
-                  <h3 className="font-semibold text-card-foreground">Recent Reports</h3>
+                  <h3 className="font-bold tracking-tight text-card-foreground">Recent Reports</h3>
                 </div>
                 <div className="divide-y divide-border">
                   {recent.length === 0 && (

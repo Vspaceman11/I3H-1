@@ -27,7 +27,7 @@ const priorityConfig = {
 
 const statusConfig = {
   pending: { label: 'Pending', icon: AlertTriangle, className: 'bg-amber-500/10 text-amber-600' },
-  'in-progress': { label: 'In Progress', icon: Clock, className: 'bg-blue-500/10 text-blue-600' },
+  'in-progress': { label: 'In Progress', icon: Clock, className: 'bg-primary/15 text-primary' },
   completed: { label: 'Completed', icon: CheckCircle, className: 'bg-green-500/10 text-green-600' },
 }
 
@@ -50,7 +50,7 @@ export function TaskDetail({ task, onBack, onStatusChange }: TaskDetailProps) {
             <span className="sr-only">Go back</span>
           </Button>
           <div className="flex-1">
-            <h1 className="text-lg font-semibold text-card-foreground">Task Details</h1>
+            <h1 className="text-lg font-extrabold tracking-tight text-card-foreground">Task Details</h1>
           </div>
         </div>
       </header>
@@ -78,7 +78,7 @@ export function TaskDetail({ task, onBack, onStatusChange }: TaskDetailProps) {
 
           {/* Title and badges */}
           <div className="space-y-3">
-            <h2 className="text-2xl font-bold text-foreground">{task.title}</h2>
+            <h2 className="text-2xl font-extrabold tracking-tight text-foreground">{task.title}</h2>
             <div className="flex flex-wrap gap-2">
               <Badge variant="outline" className={priority.className}>
                 {priority.label}
@@ -144,7 +144,7 @@ export function TaskDetail({ task, onBack, onStatusChange }: TaskDetailProps) {
                   onClick={() => handleStatusUpdate('in-progress')}
                   className="gap-2"
                 >
-                  <Clock className="h-4 w-4 text-blue-500" />
+                  <Clock className="h-4 w-4 text-primary" />
                   Start Progress
                 </Button>
               )}

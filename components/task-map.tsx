@@ -15,7 +15,7 @@ const TaskMapDynamic = dynamic(
   () => import('./task-map-inner').then((m) => m.TaskMapInner),
   {
     ssr: false,
-    loading: () => <div className="h-full w-full bg-muted animate-pulse" />,
+    loading: () => <div className="h-full w-full bg-[var(--map-canvas)] animate-pulse" />,
   }
 )
 

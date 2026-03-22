@@ -84,15 +84,20 @@ export function NewTaskForm({ photo, thumbnail, onBack, onSubmit }: NewTaskFormP
 
         {/* Header */}
         <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3">
-          <Button variant="ghost" size="icon" onClick={onBack}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onBack}
+            className="text-card-foreground hover:bg-white/10 hover:text-card-foreground"
+          >
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-lg font-semibold text-card-foreground">New Task</h1>
+          <h1 className="text-lg font-extrabold tracking-tight text-card-foreground">New Task</h1>
           <div className="w-9" />
         </div>
 
         {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto text-card-foreground">
           <form onSubmit={handleSubmit} className="p-4 pb-8 space-y-5">
             {/* Photo preview */}
             <div className="relative overflow-hidden rounded-xl bg-muted">
@@ -109,7 +114,7 @@ export function NewTaskForm({ photo, thumbnail, onBack, onSubmit }: NewTaskFormP
             <div className="flex items-center gap-2 rounded-lg bg-primary/10 p-3">
               <Sparkles className="h-5 w-5 text-primary" />
               <div className="flex-1">
-                <p className="text-sm font-medium text-foreground">AI-Generated Description</p>
+                <p className="text-sm font-medium text-card-foreground">AI-Generated Description</p>
                 <p className="text-xs text-muted-foreground">
                   {isGenerating ? 'Analyzing image...' : 'Description generated from photo'}
                 </p>
@@ -180,7 +185,7 @@ export function NewTaskForm({ photo, thumbnail, onBack, onSubmit }: NewTaskFormP
               <div className="flex items-center gap-2 rounded-lg border border-input bg-field px-3 py-2 text-sm">
                 <MapPin className="h-4 w-4 text-muted-foreground" />
                 {location ? (
-                  <span className="text-foreground">
+                  <span className="text-field-foreground">
                     {location.lat.toFixed(4)}, {location.lng.toFixed(4)}
                   </span>
                 ) : (

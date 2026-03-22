@@ -31,9 +31,9 @@ interface TaskMapInnerProps {
 }
 
 const severityColors: Record<string, string> = {
-  HIGH: '#ef4444',
-  MEDIUM: '#f59e0b',
-  EASY: '#22c55e',
+  HIGH: '#fb7185',
+  MEDIUM: '#fbbf24',
+  EASY: '#4ade80',
 }
 
 const statusSymbol: Record<string, string> = {
@@ -160,8 +160,8 @@ export const TaskMapInner = forwardRef<TaskMapHandle, TaskMapInnerProps>(
               className: '',
               html: `<div style="
                 width:18px;height:18px;border-radius:50%;
-                background:#3b82f6;border:3px solid white;
-                box-shadow:0 0 0 6px rgba(59,130,246,0.25);
+                background:#9d8af7;border:3px solid #f4f4f8;
+                box-shadow:0 0 0 6px rgba(157,138,247,0.35);
               "></div>`,
               iconSize: [18, 18],
               iconAnchor: [9, 9],

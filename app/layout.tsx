@@ -1,10 +1,16 @@
 import type { Metadata } from 'next'
-import { Geist, Geist_Mono, Playfair_Display } from 'next/font/google'
+import { Geist_Mono, Montserrat, Playfair_Display } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { ConvexClientProvider } from '@/components/convex-provider'
 import './globals.css'
 
-const geistSans = Geist({ subsets: ['latin'], variable: '--font-geist-sans' })
+/** Geometric sans, heavy weights — closer to Stenomatic-style wordmarks */
+const montserrat = Montserrat({
+  subsets: ['latin'],
+  variable: '--font-ui-sans',
+  weight: ['400', '500', '600', '700', '800'],
+  display: 'swap',
+})
 const geistMono = Geist_Mono({ subsets: ['latin'], variable: '--font-geist-mono' })
 const playfair = Playfair_Display({
   subsets: ['latin'],
@@ -33,7 +39,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${playfair.variable} font-sans antialiased`}
+        className={`${montserrat.variable} ${geistMono.variable} ${playfair.variable} font-sans antialiased`}
       >
         <ConvexClientProvider>
           {children}

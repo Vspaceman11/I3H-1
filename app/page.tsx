@@ -1,6 +1,7 @@
 'use client'
 
 import { Suspense, useState, useEffect, useRef, useCallback } from 'react'
+import Image from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useConvexAuth, useQuery } from 'convex/react'
 import { api } from '@/convex/_generated/api'
@@ -110,13 +111,24 @@ function HomeContent() {
     <div className="relative h-screen w-screen overflow-hidden">
       <TaskMap ref={mapRef} tasks={mapTasks} onTaskClick={handleIssueClick} />
 
+      <div className="pointer-events-none absolute left-1/2 top-4 z-[1000] -translate-x-1/2 select-none">
+        <Image
+          src="/pgn_logo.png"
+          alt="Pigeon-eye"
+          width={280}
+          height={120}
+          className="h-16 w-auto max-h-24 max-w-[min(92vw,400px)] object-contain sm:h-20"
+          priority
+        />
+      </div>
+
       {showMapFloatingChrome && (
         <>
           <Button
             variant="secondary"
             size="icon"
             onClick={openProfileOrAuth}
-            className="absolute right-4 top-4 z-[1000] h-12 w-12 rounded-full shadow-lg bg-card border border-border"
+            className="absolute right-4 top-4 z-[1000] h-12 w-12 rounded-full border border-primary/45 bg-card text-card-foreground shadow-md"
           >
             <User className="h-5 w-5" />
           </Button>
@@ -140,7 +152,7 @@ function HomeContent() {
             variant="secondary"
             size="icon"
             onClick={() => mapRef.current?.centerOnUser()}
-            className="absolute bottom-8 right-4 z-[1000] h-12 w-12 rounded-full shadow-lg bg-card border border-border"
+            className="absolute bottom-8 right-4 z-[1000] h-12 w-12 rounded-full border border-primary/45 bg-card text-card-foreground shadow-md"
           >
             <LocateFixed className="h-5 w-5 text-primary" />
           </Button>
@@ -153,10 +165,10 @@ function HomeContent() {
               }
               setView('photo')
             }}
-            className="absolute bottom-8 left-1/2 z-[1000] h-14 w-14 -translate-x-1/2 rounded-full shadow-xl"
+            className="absolute bottom-8 left-1/2 z-[1000] h-14 w-14 -translate-x-1/2 rounded-full bg-primary text-primary-foreground shadow-md"
             size="icon"
           >
-            <Plus className="h-6 w-6" />
+            <Plus className="h-6 w-6" strokeWidth={2.5} />
           </Button>
         </>
       )}

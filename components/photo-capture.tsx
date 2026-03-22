@@ -144,11 +144,11 @@ export function PhotoCapture({ onPhotoCapture, onClose, autoStart = false }: Pho
 
   const footer = capturedFile ? (
     <div className="flex items-center justify-between gap-2">
-      <Button variant="outline" type="button" onClick={handleCancel}>
+      <Button variant="secondary" type="button" onClick={handleCancel}>
         Cancel
       </Button>
       <div className="flex gap-2">
-        <Button variant="outline" type="button" onClick={retakePhoto}>
+        <Button type="button" onClick={retakePhoto}>
           <RotateCcw className="mr-2 h-4 w-4" />
           Retake
         </Button>
@@ -159,7 +159,7 @@ export function PhotoCapture({ onPhotoCapture, onClose, autoStart = false }: Pho
     </div>
   ) : isCameraActive ? (
     <div className="flex items-center justify-between gap-2">
-      <Button variant="outline" type="button" onClick={handleCancel}>
+      <Button variant="secondary" type="button" onClick={handleCancel}>
         Cancel
       </Button>
       <Button type="button" onClick={capturePhoto}>
@@ -169,15 +169,15 @@ export function PhotoCapture({ onPhotoCapture, onClose, autoStart = false }: Pho
     </div>
   ) : (
     <div className="flex items-center justify-between gap-2">
-      <Button variant="outline" type="button" onClick={handleCancel}>
+      <Button variant="secondary" type="button" onClick={handleCancel}>
         Cancel
       </Button>
       <div className="flex flex-wrap justify-end gap-2">
-        <Button variant="outline" type="button" onClick={startCamera}>
+        <Button type="button" onClick={startCamera}>
           <Camera className="mr-2 h-4 w-4" />
           Camera
         </Button>
-        <Button variant="outline" type="button" onClick={() => fileInputRef.current?.click()}>
+        <Button type="button" onClick={() => fileInputRef.current?.click()}>
           <Upload className="mr-2 h-4 w-4" />
           Upload
         </Button>

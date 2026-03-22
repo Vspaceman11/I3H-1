@@ -48,17 +48,28 @@ export function MapOverlayShell({
           aria-labelledby="map-overlay-title"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3">
-            <h2 id="map-overlay-title" className="text-lg font-semibold text-card-foreground">
+          <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3 text-card-foreground">
+            <h2 id="map-overlay-title" className="text-lg font-extrabold tracking-tight text-card-foreground">
               {title}
             </h2>
-            <Button variant="ghost" size="icon" type="button" onClick={onClose} aria-label="Close">
+            <Button
+              variant="ghost"
+              size="icon"
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="text-card-foreground hover:bg-white/10 hover:text-card-foreground"
+            >
               <X className="h-5 w-5" />
             </Button>
           </div>
-          <div className={cn('min-h-0 flex-1 overflow-y-auto', bodyClassName)}>{children}</div>
+          <div className={cn('min-h-0 flex-1 overflow-y-auto text-card-foreground', bodyClassName)}>
+            {children}
+          </div>
           {footer ? (
-            <div className="shrink-0 border-t border-border bg-card px-4 py-3">{footer}</div>
+            <div className="shrink-0 border-t border-border bg-card px-4 py-3 text-card-foreground">
+              {footer}
+            </div>
           ) : null}
         </div>
       </div>
