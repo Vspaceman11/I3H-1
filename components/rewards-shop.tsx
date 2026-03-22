@@ -4,10 +4,8 @@ import { useState } from 'react'
 import { useQuery, useMutation } from 'convex/react'
 import { useConvexAuth } from 'convex/react'
 import { api } from '@/convex/_generated/api'
-import { QRCodeSVG } from 'qrcode.react'
 import {
-  Trophy, Coffee, Apple, Star, Gift, X, Check,
-  Loader2, Ticket, Clock,
+  Trophy, Coffee, Apple, Star, Gift, Check, Loader2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { MapOverlayShell } from '@/components/map-overlay-shell'
@@ -63,24 +61,15 @@ interface RewardsShopProps {
 export function RewardsShop({ onBack }: RewardsShopProps) {
   const { isLoading: authLoading, isAuthenticated: convexAuthenticated } = useConvexAuth()
   const currentUser = useQuery(api.users.currentUser)
-  const userCoupons = useQuery(
-    api.coupons.listByUser,
-    currentUser ? { user_id: currentUser._id } : 'skip',
-  ) ?? []
-
   const redeemReward = useMutation(api.coupons.redeemReward)
 
   const [redeeming, setRedeeming] = useState<string | null>(null)
-  const [showQR, setShowQR] = useState<{ code: string; reward: Reward } | null>(null)
+  const [redeemed, setRedeemed] = useState<Set<string>>(new Set())
   const [error, setError] = useState<string | null>(null)
 
   const isAuthenticated = convexAuthenticated && currentUser != null
   const isLoading = authLoading || (convexAuthenticated && currentUser === undefined)
   const points = currentUser?.total_points ?? 0
-
-  const activeCoupons = userCoupons
-    .filter((c) => c.status === 'active')
-    .sort((a, b) => b._creationTime - a._creationTime)
 
   const handleRedeem = async (reward: Reward) => {
     if (!currentUser) return
@@ -88,13 +77,12 @@ export function RewardsShop({ onBack }: RewardsShopProps) {
     setError(null)
 
     try {
-      const result = await redeemReward({
+      await redeemReward({
         user_id: currentUser._id,
         reward_name: reward.name,
-        discount_percent: reward.discountPercent,
         points_cost: reward.pointsCost,
       })
-      setShowQR({ code: result.code, reward })
+      setRedeemed((prev) => new Set(prev).add(reward.id))
     } catch (err: unknown) {
       let msg = 'Failed to redeem'
       if (err && typeof err === 'object' && 'data' in err) {
@@ -142,6 +130,7 @@ export function RewardsShop({ onBack }: RewardsShopProps) {
                 const Icon = reward.icon
                 const canAfford = points >= reward.pointsCost
                 const isRedeeming = redeeming === reward.id
+                const wasRedeemed = redeemed.has(reward.id)
 
                 return (
                   <div
@@ -165,20 +154,27 @@ export function RewardsShop({ onBack }: RewardsShopProps) {
                           </span>
                         </div>
                       </div>
-                      <Button
-                        size="sm"
-                        disabled={!canAfford || isRedeeming}
-                        onClick={() => handleRedeem(reward)}
-                        className={canAfford ? '' : 'opacity-50'}
-                      >
-                        {isRedeeming ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : canAfford ? (
-                          'Redeem'
-                        ) : (
-                          `${reward.pointsCost - points} more`
-                        )}
-                      </Button>
+                      {wasRedeemed ? (
+                        <div className="flex items-center gap-1 rounded-full bg-green-100 px-3 py-1.5">
+                          <Check className="h-4 w-4 text-green-600" />
+                          <span className="text-xs font-semibold text-green-700">Redeemed</span>
+                        </div>
+                      ) : (
+                        <Button
+                          size="sm"
+                          disabled={!canAfford || isRedeeming}
+                          onClick={() => handleRedeem(reward)}
+                          className={canAfford ? '' : 'opacity-50'}
+                        >
+                          {isRedeeming ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : canAfford ? (
+                            'Redeem'
+                          ) : (
+                            `${reward.pointsCost - points} more`
+                          )}
+                        </Button>
+                      )}
                     </div>
                   </div>
                 )
@@ -188,101 +184,9 @@ export function RewardsShop({ onBack }: RewardsShopProps) {
             {error && (
               <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{error}</div>
             )}
-
-            {/* Active coupons */}
-            {activeCoupons.length > 0 && (
-              <div className="rounded-xl bg-card border border-border">
-                <div className="border-b border-border p-4">
-                  <h3 className="font-semibold text-card-foreground flex items-center gap-2">
-                    <Ticket className="h-4 w-4" />
-                    My Coupons
-                  </h3>
-                </div>
-                <div className="divide-y divide-border">
-                  {activeCoupons.map((coupon) => (
-                    <button
-                      key={coupon._id}
-                      type="button"
-                      onClick={() =>
-                        setShowQR({
-                          code: coupon.code,
-                          reward: REWARDS.find((r) => r.name === coupon.reward_name) ?? {
-                            id: 'custom',
-                            name: coupon.reward_name ?? 'Reward',
-                            description: '',
-                            pointsCost: coupon.points_cost,
-                            discountPercent: coupon.discount_percent,
-                            icon: Gift,
-                            color: 'text-primary',
-                            bgColor: 'bg-primary/10',
-                          },
-                        })
-                      }
-                      className="flex w-full items-center gap-3 p-4 text-left hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="rounded-lg bg-green-100 p-2">
-                        <Check className="h-4 w-4 text-green-600" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="truncate font-medium text-card-foreground text-sm">
-                          {coupon.reward_name ?? `${coupon.discount_percent}% discount`}
-                        </p>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span className="font-mono">{coupon.code}</span>
-                          <span>·</span>
-                          <Clock className="h-3 w-3" />
-                          <span>{new Date(coupon.expires_at).toLocaleDateString()}</span>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
           </>
         )}
       </div>
-
-      {/* QR code modal */}
-      {showQR && (
-        <>
-          <div
-            className="fixed inset-0 z-[1010] bg-black/60 backdrop-blur-sm"
-            onClick={() => setShowQR(null)}
-          />
-          <div className="fixed inset-0 z-[1011] flex items-center justify-center p-6 pointer-events-none">
-            <div className="pointer-events-auto w-full max-w-xs rounded-2xl bg-card border border-border p-6 shadow-2xl">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-card-foreground">{showQR.reward.name}</h3>
-                <button
-                  type="button"
-                  onClick={() => setShowQR(null)}
-                  className="rounded-full p-1 hover:bg-muted transition-colors"
-                >
-                  <X className="h-4 w-4 text-muted-foreground" />
-                </button>
-              </div>
-              <div className="flex justify-center rounded-xl bg-white p-4">
-                <QRCodeSVG
-                  value={`pigeon-eye://coupon/${showQR.code}`}
-                  size={180}
-                  level="H"
-                  includeMargin={false}
-                />
-              </div>
-              <p className="mt-3 text-center font-mono text-lg font-bold tracking-wider text-card-foreground">
-                {showQR.code}
-              </p>
-              <p className="mt-1 text-center text-xs text-muted-foreground">
-                {showQR.reward.description}
-              </p>
-              <p className="mt-1 text-center text-xs text-muted-foreground">
-                Show this QR code at the location
-              </p>
-            </div>
-          </div>
-        </>
-      )}
     </MapOverlayShell>
   )
 }

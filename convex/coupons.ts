@@ -14,7 +14,6 @@ export const redeemReward = mutation({
   args: {
     user_id: v.id("users"),
     reward_name: v.string(),
-    discount_percent: v.number(),
     points_cost: v.number(),
   },
   handler: async (ctx, args) => {
@@ -27,26 +26,10 @@ export const redeemReward = mutation({
       );
     }
 
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 30);
+    const newPoints = user.total_points - args.points_cost;
+    await ctx.db.patch(args.user_id, { total_points: newPoints });
 
-    const code = generateCouponCode();
-    await ctx.db.insert("coupons", {
-      user_id: args.user_id,
-      code,
-      points_cost: args.points_cost,
-      discount_percent: args.discount_percent,
-      reward_name: args.reward_name,
-      status: "active",
-      expires_at: expiresAt.toISOString(),
-      created_at: new Date().toISOString(),
-    });
-
-    await ctx.db.patch(args.user_id, {
-      total_points: user.total_points - args.points_cost,
-    });
-
-    return { code };
+    return { success: true, remaining: newPoints };
   },
 });
 
