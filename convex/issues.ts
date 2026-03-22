@@ -672,6 +672,104 @@ export const markLetterSending = internalMutation({
 
 // ── Escalation letter: actions ───────────────────────────
 
+const AUTHORITY_MAP: Record<string, { name: string; dept: string; email: string }> = {
+  roads_department: {
+    name: "Stadtverwaltung Heilbronn",
+    dept: "Tiefbauamt",
+    email: "tiefbauamt@heilbronn.de",
+  },
+  utilities_electric: {
+    name: "Stadtverwaltung Heilbronn",
+    dept: "Stadtwerke — Elektrizität",
+    email: "stadtwerke@heilbronn.de",
+  },
+  utilities_water: {
+    name: "Stadtverwaltung Heilbronn",
+    dept: "Stadtwerke — Wasser",
+    email: "stadtwerke@heilbronn.de",
+  },
+  utilities_gas: {
+    name: "Stadtverwaltung Heilbronn",
+    dept: "Stadtwerke — Gas",
+    email: "stadtwerke@heilbronn.de",
+  },
+  sanitation: {
+    name: "Stadtverwaltung Heilbronn",
+    dept: "Abfallwirtschaft",
+    email: "abfallwirtschaft@heilbronn.de",
+  },
+  parks_department: {
+    name: "Stadtverwaltung Heilbronn",
+    dept: "Grünflächenamt",
+    email: "gruenflaechenamt@heilbronn.de",
+  },
+  police: {
+    name: "Polizeipräsidium Heilbronn",
+    dept: "Polizei",
+    email: "polizei@heilbronn.de",
+  },
+  emergency_services: {
+    name: "Stadtverwaltung Heilbronn",
+    dept: "Ordnungsamt",
+    email: "ordnungsamt@heilbronn.de",
+  },
+  environmental: {
+    name: "Stadtverwaltung Heilbronn",
+    dept: "Umwelt- und Naturschutz",
+    email: "umwelt@heilbronn.de",
+  },
+  general: {
+    name: "Stadtverwaltung Heilbronn",
+    dept: "Bürgeramt — Allgemeine Anfragen",
+    email: "buergeramt@heilbronn.de",
+  },
+};
+
+function buildDemoLetter(issue: {
+  _id: string;
+  category?: string;
+  severity: string;
+  ai_description?: string;
+  user_description?: string;
+  address?: string;
+  latitude?: number;
+  longitude?: number;
+  authority_type?: string;
+}) {
+  const authKey = issue.authority_type ?? "general";
+  const auth = AUTHORITY_MAP[authKey] ?? AUTHORITY_MAP.general;
+
+  const addr = issue.address ?? "Heilbronn (Standort unbekannt)";
+  const desc = issue.ai_description || issue.user_description || "Sicherheitsrelevantes Problem";
+  const cat = issue.category ?? "Allgemein";
+  const mapsLink =
+    issue.latitude && issue.longitude
+      ? `https://maps.google.com/?q=${issue.latitude},${issue.longitude}`
+      : null;
+
+  const subject = `Dringende Meldung: Sicherheitsrisiko — ${cat} (${addr})`;
+
+  const body = [
+    `<p>Sehr geehrte Damen und Herren,</p>`,
+    `<p>über die Bürgermelde-Plattform <strong>Pigeon-eye</strong> wurde eine Meldung mit `,
+    `<strong>Sicherheitsrisiko</strong> eingereicht, die Ihr Zuständigkeitsbereich betrifft.</p>`,
+    `<p><strong>Details zur Meldung:</strong></p>`,
+    `<ul>`,
+    `<li><strong>Kategorie:</strong> ${cat}</li>`,
+    `<li><strong>Schweregrad:</strong> ${issue.severity}</li>`,
+    `<li><strong>Beschreibung:</strong> ${desc}</li>`,
+    `<li><strong>Ort:</strong> ${addr}</li>`,
+    mapsLink ? `<li><strong>Karte:</strong> <a href="${mapsLink}">${mapsLink}</a></li>` : "",
+    `<li><strong>Meldungs-ID:</strong> ${issue._id}</li>`,
+    `</ul>`,
+    `<p>Wir bitten Sie, die Situation zeitnah zu prüfen und geeignete Maßnahmen einzuleiten. `,
+    `Bei Rückfragen stehen wir Ihnen gerne über die Plattform zur Verfügung.</p>`,
+    `<p>Mit freundlichen Grüßen,<br/><strong>Pigeon-eye — Bürgermeldestelle Heilbronn</strong></p>`,
+  ].join("\n");
+
+  return { subject, body, to: auth.email, authority: `${auth.name} — ${auth.dept}` };
+}
+
 export const triggerLetterGeneration = internalAction({
   args: { issueId: v.id("issues") },
   handler: async (ctx, { issueId }) => {
@@ -680,130 +778,47 @@ export const triggerLetterGeneration = internalAction({
 
     await ctx.runMutation(internal.issues.markLetterGenerating, { issueId });
 
-    const webhookUrl = process.env.N8N_LETTER_WEBHOOK_URL;
-    if (!webhookUrl) {
-      await ctx.runMutation(internal.issues.markLetterError, {
-        issueId,
-        error: "N8N_LETTER_WEBHOOK_URL not configured",
-      });
-      return;
-    }
+    // Simulate AI generation delay for demo realism
+    await new Promise((resolve) => setTimeout(resolve, 2000));
 
-    const webhookSecret = process.env.N8N_WEBHOOK_SECRET;
-    const convexSiteUrl = process.env.CONVEX_SITE_URL;
-
-    let imageUrl: string | null = null;
-    if (issue.storageId) {
-      imageUrl = await ctx.storage.getUrl(issue.storageId);
-    }
-
-    const payload = {
-      issue_id: issueId,
-      category: issue.category ?? "unknown",
+    const letter = buildDemoLetter({
+      _id: String(issueId),
+      category: issue.category ?? undefined,
       severity: issue.severity,
-      ai_description: issue.ai_description ?? "",
-      user_description: issue.user_description ?? "",
-      address: issue.address ?? "Unknown",
-      latitude: issue.latitude,
-      longitude: issue.longitude,
-      authority_type: issue.authority_type ?? "general",
-      image_url: imageUrl ?? issue.image_url,
-      callback_url: convexSiteUrl
-        ? `${convexSiteUrl}/api/issues/escalation-letter`
-        : undefined,
-    };
+      ai_description: issue.ai_description ?? undefined,
+      user_description: issue.user_description ?? undefined,
+      address: issue.address ?? undefined,
+      latitude: issue.latitude ?? undefined,
+      longitude: issue.longitude ?? undefined,
+      authority_type: issue.authority_type ?? undefined,
+    });
 
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
-    if (webhookSecret) {
-      headers["Authorization"] = `Bearer ${webhookSecret}`;
-    }
-
-    try {
-      const response = await fetch(webhookUrl, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const text = await response.text();
-        await ctx.runMutation(internal.issues.markLetterError, {
-          issueId,
-          error: `n8n returned ${response.status}: ${text.slice(0, 200)}`,
-        });
-      }
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Unknown fetch error";
-      await ctx.runMutation(internal.issues.markLetterError, {
-        issueId,
-        error: message,
-      });
-    }
+    await ctx.runMutation(internal.issues.saveEscalationLetter, {
+      issueId,
+      subject: letter.subject,
+      body: letter.body,
+      to: letter.to,
+      authority: letter.authority,
+    });
   },
 });
 
-export const sendApprovedLetter = action({
+/** Demo stub: marks the letter as "sent" without calling any external service. */
+export const sendApprovedLetter = mutation({
   args: { issueId: v.id("issues") },
   handler: async (ctx, { issueId }) => {
-    const issue = await ctx.runQuery(internal.issues.getInternal, { issueId });
+    const issue = await ctx.db.get(issueId);
     if (!issue) throw new Error("Issue not found");
-    if (issue.escalation_letter_status !== "approved") {
-      throw new Error("Letter must be approved before sending");
+    if (
+      issue.escalation_letter_status !== "approved" &&
+      issue.escalation_letter_status !== "draft"
+    ) {
+      throw new Error("Letter must be in draft or approved state");
     }
 
-    await ctx.runMutation(internal.issues.markLetterSending, { issueId });
-
-    const webhookUrl = process.env.N8N_SEND_LETTER_WEBHOOK_URL;
-    if (!webhookUrl) {
-      await ctx.runMutation(internal.issues.markLetterError, {
-        issueId,
-        error: "N8N_SEND_LETTER_WEBHOOK_URL not configured",
-      });
-      return;
-    }
-
-    const webhookSecret = process.env.N8N_WEBHOOK_SECRET;
-    const payload = {
-      issue_id: issueId,
-      to: issue.escalation_letter_to,
-      authority: issue.escalation_letter_authority,
-      subject: issue.escalation_letter_subject,
-      body_html: issue.escalation_letter_body,
-    };
-
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
-    if (webhookSecret) {
-      headers["Authorization"] = `Bearer ${webhookSecret}`;
-    }
-
-    try {
-      const response = await fetch(webhookUrl, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const text = await response.text();
-        await ctx.runMutation(internal.issues.markLetterError, {
-          issueId,
-          error: `Send failed (${response.status}): ${text.slice(0, 200)}`,
-        });
-        return;
-      }
-
-      await ctx.runMutation(internal.issues.markLetterSent, { issueId });
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Unknown fetch error";
-      await ctx.runMutation(internal.issues.markLetterError, {
-        issueId,
-        error: message,
-      });
-    }
+    await ctx.db.patch(issueId, {
+      escalation_letter_status: "sent",
+    });
   },
 });
 

@@ -37,9 +37,8 @@ const severityConfig = {
 export function IssueDetail({ issueId, onBack }: IssueDetailProps) {
   const issue = useQuery(api.issues.get, { id: issueId })
   const retryAnalysis = useAction(api.issues.triggerN8nAnalysis)
-  const approveLetter = useMutation(api.issues.approveEscalationLetter)
+  const sendLetter = useMutation(api.issues.sendApprovedLetter)
   const rejectLetter = useMutation(api.issues.rejectEscalationLetter)
-  const sendLetter = useAction(api.issues.sendApprovedLetter)
   const [letterActionPending, setLetterActionPending] = useState(false)
 
   let body: ReactNode
@@ -187,7 +186,6 @@ export function IssueDetail({ issueId, onBack }: IssueDetailProps) {
               onApprove={async () => {
                 setLetterActionPending(true)
                 try {
-                  await approveLetter({ issueId: issue._id })
                   await sendLetter({ issueId: issue._id })
                 } catch {
                   // Error states are handled via Convex reactive data
