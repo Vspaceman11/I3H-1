@@ -54,6 +54,21 @@ export default defineSchema({
     )),
     analysisError: v.optional(v.string()),
     n8nExecutionId: v.optional(v.string()),
+
+    escalation_letter_subject: v.optional(v.string()),
+    escalation_letter_body: v.optional(v.string()),
+    escalation_letter_to: v.optional(v.string()),
+    escalation_letter_authority: v.optional(v.string()),
+    escalation_letter_status: v.optional(v.union(
+      v.literal("generating"),
+      v.literal("draft"),
+      v.literal("approved"),
+      v.literal("sending"),
+      v.literal("sent"),
+      v.literal("rejected"),
+      v.literal("error"),
+    )),
+    escalation_letter_error: v.optional(v.string()),
   })
     .index("by_severity", ["severity"])
     .index("by_status", ["status"])

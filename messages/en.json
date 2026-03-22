@@ -154,6 +154,24 @@
     "exclusiveDesc": "Exclusive Pigeon-eye golden badge + 20% at Stadtgalerie",
     "discount": "discount"
   },
+  "escalation": {
+    "title": "Letter to Municipal Authorities",
+    "generating": "Generating letter to authorities…",
+    "generatingHint": "AI is composing a formal letter based on the safety concern",
+    "draftTitle": "Review Letter Before Sending",
+    "to": "To",
+    "subject": "Subject",
+    "confirmQuestion": "Would you like to send this letter to the municipal authorities?",
+    "approve": "Send Letter",
+    "reject": "Don't Send",
+    "sending": "Sending letter…",
+    "sent": "Letter sent to authorities",
+    "sentDescription": "The letter has been sent successfully",
+    "rejected": "Letter not sent",
+    "rejectedDescription": "You chose not to send this letter",
+    "error": "Letter generation failed",
+    "retry": "Retry"
+  },
   "status": {
     "open": "Open",
     "resolved": "Resolved"

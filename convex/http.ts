@@ -263,4 +263,105 @@ http.route({
   }),
 });
 
+// ── n8n callback: escalation letter ──────────────────────
+
+http.route({
+  path: "/api/issues/escalation-letter",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const secret = process.env.WEBHOOK_SECRET;
+    if (secret) {
+      const token = request.headers.get("Authorization")?.replace("Bearer ", "");
+      if (token !== secret) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+        });
+      }
+    }
+
+    let body: Record<string, unknown>;
+    try {
+      body = await request.json();
+    } catch {
+      return new Response(JSON.stringify({ error: "Invalid JSON" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+      });
+    }
+
+    const rawIssueId = String(body.issue_id ?? "");
+    if (!rawIssueId) {
+      return new Response(
+        JSON.stringify({ error: "issue_id is required" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...CORS_HEADERS } },
+      );
+    }
+
+    const resolved = await ctx.runQuery(internal.issues.resolveIssueForHttpPost, {
+      identifier: rawIssueId,
+    });
+
+    if (!resolved.id) {
+      return new Response(
+        JSON.stringify({ error: `Issue not found: ${rawIssueId}` }),
+        { status: 404, headers: { "Content-Type": "application/json", ...CORS_HEADERS } },
+      );
+    }
+
+    const isError = body.error === true || typeof body.error_message === "string";
+    if (isError) {
+      await ctx.runMutation(internal.issues.markLetterError, {
+        issueId: resolved.id,
+        error: String(body.error_message ?? "Letter generation failed in n8n"),
+      });
+      return new Response(JSON.stringify({ success: true, recorded: "error" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+      });
+    }
+
+    const subject = String(body.subject ?? body.email_subject ?? "");
+    const letterBody = String(body.body_html ?? body.email_body_html ?? body.body ?? "");
+    const to = optStr(body.to) ?? optStr(body.authority_email);
+    const authority = optStr(body.authority_name) ?? optStr(body.authority);
+
+    if (!subject || !letterBody) {
+      return new Response(
+        JSON.stringify({ error: "subject and body_html are required" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...CORS_HEADERS } },
+      );
+    }
+
+    try {
+      await ctx.runMutation(internal.issues.saveEscalationLetter, {
+        issueId: resolved.id,
+        subject,
+        body: letterBody,
+        to,
+        authority,
+      });
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { status: 200, headers: { "Content-Type": "application/json", ...CORS_HEADERS } },
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Internal error";
+      return new Response(
+        JSON.stringify({ error: msg }),
+        { status: 500, headers: { "Content-Type": "application/json", ...CORS_HEADERS } },
+      );
+    }
+  }),
+});
+
+http.route({
+  path: "/api/issues/escalation-letter",
+  method: "OPTIONS",
+  handler: httpAction(async () => {
+    return new Response(null, { status: 204, headers: CORS_HEADERS });
+  }),
+});
+
 export default http;

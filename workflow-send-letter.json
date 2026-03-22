@@ -1,0 +1,65 @@
+{
+  "name": "City Reporter - Send Approved Letter",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "city-reporter/send-approved-letter",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "send-trigger-001",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-400, 400],
+      "webhookId": "send-approved-letter-001"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const raw = item.json;\n  const input = raw.body || raw;\n\n  if (!input.issue_id) throw new Error('Missing issue_id');\n  if (!input.subject) throw new Error('Missing subject');\n  if (!input.body_html) throw new Error('Missing body_html');\n\n  results.push({\n    json: {\n      issue_id: input.issue_id,\n      to: input.to || '',\n      authority: input.authority || 'Stadtverwaltung',\n      subject: input.subject,\n      body_html: input.body_html\n    }\n  });\n}\n\nreturn results;"
+      },
+      "id": "send-validate-001",
+      "name": "Validate Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-128, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nreturn items.map(item => {\n  const data = item.json;\n  console.log('[SEND-LETTER] To: ' + data.to);\n  console.log('[SEND-LETTER] Subject: ' + data.subject);\n  console.log('[SEND-LETTER] Issue: ' + data.issue_id);\n\n  return {\n    json: {\n      ...data,\n      email_status: 'sent',\n      sent_at: new Date().toISOString(),\n      note: 'Replace this Code node with an Email Send node (SMTP / Gmail / etc.) to deliver real emails.'\n    }\n  };\n});"
+      },
+      "id": "send-email-001",
+      "name": "Send Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [144, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().map(item => ({\n  json: {\n    success: true,\n    issue_id: item.json.issue_id,\n    email_status: item.json.email_status,\n    sent_at: item.json.sent_at\n  }\n}));"
+      },
+      "id": "send-response-001",
+      "name": "Prepare Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [416, 400]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [[{ "node": "Validate Input", "type": "main", "index": 0 }]]
+    },
+    "Validate Input": {
+      "main": [[{ "node": "Send Email", "type": "main", "index": 0 }]]
+    },
+    "Send Email": {
+      "main": [[{ "node": "Prepare Response", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": true,
+  "settings": { "executionOrder": "v1" },
+  "meta": {
+    "description": "Receives a user-approved escalation letter from Convex and sends it via email. Replace the 'Send Email' Code node with an actual Email Send node (SMTP/Gmail) for production use."
+  }
+}

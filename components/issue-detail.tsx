@@ -1,7 +1,7 @@
 'use client'
 
-import type { ReactNode } from 'react'
-import { useQuery, useAction } from 'convex/react'
+import { useState, type ReactNode } from 'react'
+import { useQuery, useAction, useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { Id } from '@/convex/_generated/dataModel'
 import {
@@ -13,6 +13,10 @@ import {
   Tag,
   BarChart3,
   RefreshCw,
+  Mail,
+  Send,
+  X,
+  Building2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -33,6 +37,9 @@ const severityConfig = {
 export function IssueDetail({ issueId, onBack }: IssueDetailProps) {
   const issue = useQuery(api.issues.get, { id: issueId })
   const retryAnalysis = useAction(api.issues.triggerN8nAnalysis)
+  const sendLetter = useMutation(api.issues.sendApprovedLetter)
+  const rejectLetter = useMutation(api.issues.rejectEscalationLetter)
+  const [letterActionPending, setLetterActionPending] = useState(false)
 
   let body: ReactNode
   if (issue === undefined) {
@@ -173,6 +180,29 @@ export function IssueDetail({ issueId, onBack }: IssueDetailProps) {
               )}
             </div>
 
+            <EscalationLetterSection
+              issue={issue}
+              letterActionPending={letterActionPending}
+              onApprove={async () => {
+                setLetterActionPending(true)
+                try {
+                  await sendLetter({ issueId: issue._id })
+                } catch {
+                  // Error states are handled via Convex reactive data
+                } finally {
+                  setLetterActionPending(false)
+                }
+              }}
+              onReject={async () => {
+                setLetterActionPending(true)
+                try {
+                  await rejectLetter({ issueId: issue._id })
+                } finally {
+                  setLetterActionPending(false)
+                }
+              }}
+            />
+
             {issue.user_description && (
               <div className="rounded-lg border border-border/80 bg-field p-3">
                 <p className="mb-1 text-xs font-medium text-muted-foreground">User Description</p>
@@ -198,5 +228,227 @@ export function IssueDetail({ issueId, onBack }: IssueDetailProps) {
     <MapOverlayShell title="Issue Details" onClose={onBack}>
       {body}
     </MapOverlayShell>
+  )
+}
+
+// ── Escalation letter sub-component ──────────────────────
+
+const LETTER_STEPS = [
+  { key: 'generating', label: 'Generating' },
+  { key: 'draft', label: 'Review' },
+  { key: 'sending', label: 'Sending' },
+  { key: 'sent', label: 'Sent' },
+] as const
+
+type LetterStepKey = (typeof LETTER_STEPS)[number]['key']
+
+function stepIndex(status: string | undefined): number {
+  if (!status) return -1
+  if (status === 'approved') return 2
+  const idx = LETTER_STEPS.findIndex((s) => s.key === status)
+  return idx === -1 ? -1 : idx
+}
+
+interface EscalationLetterSectionProps {
+  issue: {
+    escalation_letter_status?: string
+    escalation_letter_subject?: string
+    escalation_letter_body?: string
+    escalation_letter_to?: string
+    escalation_letter_authority?: string
+    escalation_letter_error?: string
+    safety_concern?: boolean
+  }
+  letterActionPending: boolean
+  onApprove: () => void
+  onReject: () => void
+}
+
+function LetterProgressBar({ status }: { status: string | undefined }) {
+  const current = stepIndex(status)
+  if (current < 0) return null
+
+  return (
+    <div className="flex items-center gap-1">
+      {LETTER_STEPS.map((step, i) => {
+        const done = i < current
+        const active = i === current
+        return (
+          <div key={step.key} className="flex flex-1 flex-col items-center gap-1">
+            <div
+              className={`h-1 w-full rounded-full transition-colors duration-500 ${
+                done
+                  ? 'bg-primary'
+                  : active
+                    ? 'bg-primary/60 animate-pulse'
+                    : 'bg-border/40'
+              }`}
+            />
+            <span
+              className={`text-[10px] font-medium transition-colors ${
+                done || active ? 'text-primary' : 'text-muted-foreground/50'
+              }`}
+            >
+              {step.label}
+            </span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function EscalationLetterSection({
+  issue,
+  letterActionPending,
+  onApprove,
+  onReject,
+}: EscalationLetterSectionProps) {
+  const status = issue.escalation_letter_status
+  if (!issue.safety_concern && !status) return null
+
+  if (status === 'rejected') {
+    return (
+      <div className="mt-3 rounded-xl border border-border/40 bg-secondary/30 p-4">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted/50">
+            <X className="h-4 w-4 text-muted-foreground" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-muted-foreground">Letter not sent</p>
+            <p className="text-xs text-muted-foreground/60">You chose not to send this letter</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (status === 'error') {
+    return (
+      <div className="mt-3 rounded-xl border border-red-500/25 bg-red-950/15 p-4">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-500/15">
+            <AlertTriangle className="h-4 w-4 text-red-400" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-red-300">Letter generation failed</p>
+            {issue.escalation_letter_error && (
+              <p className="text-xs text-red-300/60">{issue.escalation_letter_error}</p>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="mt-3 space-y-3 rounded-xl border border-primary/20 bg-gradient-to-b from-primary/[0.06] to-transparent p-4">
+      <div className="flex items-center gap-2.5">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/15">
+          <Mail className="h-4 w-4 text-primary" />
+        </div>
+        <h3 className="text-sm font-bold tracking-tight text-card-foreground">
+          Letter to Municipal Authorities
+        </h3>
+      </div>
+
+      <LetterProgressBar status={status} />
+
+      {status === 'generating' && (
+        <div className="flex items-center gap-3 rounded-lg bg-primary/[0.08] px-3 py-2.5">
+          <Loader2 className="h-4 w-4 shrink-0 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">
+            AI is composing a formal letter based on the safety concern…
+          </p>
+        </div>
+      )}
+
+      {status === 'draft' && (
+        <>
+          {issue.escalation_letter_authority && (
+            <div className="flex items-center gap-2 rounded-lg bg-secondary/50 px-3 py-2">
+              <Building2 className="h-4 w-4 shrink-0 text-primary/70" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-card-foreground">
+                  {issue.escalation_letter_authority}
+                </p>
+                {issue.escalation_letter_to && (
+                  <p className="truncate text-xs text-muted-foreground">
+                    {issue.escalation_letter_to}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {issue.escalation_letter_subject && (
+            <div className="rounded-lg border border-border/50 bg-field/60 px-3 py-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                Subject
+              </p>
+              <p className="text-sm font-medium text-field-foreground">
+                {issue.escalation_letter_subject}
+              </p>
+            </div>
+          )}
+
+          {issue.escalation_letter_body && (
+            <div className="max-h-[35vh] overflow-y-auto rounded-lg border border-border/50 bg-field/60 px-3 py-2.5">
+              <div
+                className="prose prose-sm prose-invert max-w-none text-field-foreground/90
+                  [&_p]:my-1.5 [&_ul]:my-1.5 [&_li]:my-0.5 [&_strong]:text-card-foreground
+                  [&_a]:text-primary [&_a]:underline-offset-2"
+                dangerouslySetInnerHTML={{ __html: issue.escalation_letter_body }}
+              />
+            </div>
+          )}
+
+          <div className="flex gap-2 pt-1">
+            <Button
+              size="sm"
+              onClick={onApprove}
+              disabled={letterActionPending}
+              className="flex-1 bg-primary text-primary-foreground hover:bg-primary/85 font-semibold"
+            >
+              {letterActionPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="mr-2 h-4 w-4" />
+              )}
+              Send Letter
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={onReject}
+              disabled={letterActionPending}
+              className="flex-1 border border-border/60"
+            >
+              <X className="mr-2 h-4 w-4" />
+              Don&apos;t Send
+            </Button>
+          </div>
+        </>
+      )}
+
+      {(status === 'approved' || status === 'sending') && (
+        <div className="flex items-center gap-3 rounded-lg bg-primary/[0.08] px-3 py-2.5">
+          <Loader2 className="h-4 w-4 shrink-0 animate-spin text-primary" />
+          <p className="text-sm font-medium text-card-foreground">Sending letter…</p>
+        </div>
+      )}
+
+      {status === 'sent' && (
+        <div className="flex items-center gap-2.5 rounded-lg bg-emerald-500/10 px-3 py-2.5">
+          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/20">
+            <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-emerald-300">Letter sent successfully</p>
+            <p className="text-xs text-emerald-300/60">Authorities have been notified</p>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }

@@ -1,0 +1,114 @@
+{
+  "name": "City Reporter - Escalation Letter Generator",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "city-reporter/generate-escalation-letter",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "gen-trigger-001",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-800, 400],
+      "webhookId": "escalation-letter-gen-001"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const raw = item.json;\n  const input = raw.body || raw;\n\n  const issueId = input.issue_id;\n  if (!issueId) throw new Error('Missing issue_id');\n\n  const lat = parseFloat(input.latitude) || 0;\n  const lon = parseFloat(input.longitude) || 0;\n  const hasCoords = lat !== 0 && lon !== 0;\n\n  let resolvedAddress = input.address || 'Unknown';\n  if (hasCoords && resolvedAddress === 'Unknown') {\n    try {\n      const geocode = await this.helpers.httpRequest({\n        method: 'GET',\n        url: `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&addressdetails=1`,\n        headers: { 'User-Agent': 'CityReporterApp/1.0' },\n        json: true,\n        timeout: 10000\n      });\n      if (geocode?.display_name) resolvedAddress = geocode.display_name;\n    } catch (e) {}\n  }\n\n  const mapsLink = hasCoords ? `https://maps.google.com/?q=${lat},${lon}` : '';\n\n  const factsDe = [\n    `Meldungs-ID: ${issueId}`,\n    `Kategorie: ${input.category || 'unbekannt'}`,\n    `Schweregrad: ${input.severity || 'unbekannt'}`,\n    `KI-Beschreibung: ${input.ai_description || 'keine'}`,\n    `Benutzerbeschreibung: ${input.user_description || 'keine'}`,\n    `Sicherheitsrisiko: ja`,\n    `Ort: ${resolvedAddress}`,\n    hasCoords ? `Koordinaten: ${lat}, ${lon}` : '',\n    mapsLink ? `Karte: ${mapsLink}` : '',\n    `Zuständigkeit (KI-Vorschlag): ${input.authority_type || 'allgemein'}`\n  ].filter(Boolean).join('\\n');\n\n  const systemPrompt = 'Du bist ein Assistent für eine Bürger-Meldestelle (Stadt/Umwelt). Du verfasst formelle Schreiben an Behörden. Antworte NUR mit gültigem JSON (kein Markdown, kein Kommentar).';\n\n  const userPrompt = `Verfasse ein formelles Schreiben an die zuständige Behörde auf Deutsch (Sie-Form) für die folgende Meldung mit Sicherheitsrisiko.\n\nDas Schreiben soll höflich, sachlich und professionell sein. Verwende einfaches HTML (<p>, <br>, <strong>, <ul><li>) für den Brieftext.\n\nSuche auch nach der zuständigen Behörde / Abteilung in der Region und füge eine realistische E-Mail-Adresse hinzu.\n\nAntwortformat (exakt diese Schlüssel):\n{\n  \"authority_name\": \"Name der Behörde/Abteilung\",\n  \"authority_email\": \"realistische E-Mail-Adresse\",\n  \"email_subject\": \"Betreff des Schreibens\",\n  \"email_body_html\": \"<p>Formeller Brieftext in HTML</p>\"\n}\n\nFakten zur Meldung:\n${factsDe}`;\n\n  results.push({\n    json: {\n      issue_id: issueId,\n      callback_url: input.callback_url || null,\n      address: resolvedAddress,\n      ai_request_body: {\n        contents: [{\n          role: 'user',\n          parts: [{ text: systemPrompt + '\\n\\n' + userPrompt }]\n        }],\n        generationConfig: {\n          responseMimeType: 'application/json',\n          maxOutputTokens: 2048,\n          temperature: 0.25\n        }\n      }\n    }\n  });\n}\n\nreturn results;"
+      },
+      "id": "gen-prepare-001",
+      "name": "Prepare Letter Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-528, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://generativelanguage.googleapis.com/v1beta/models/' + ($vars.GEMINI_MODEL || 'gemini-2.5-flash') + ':generateContent?key=' + $vars.AI_API_KEY }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.ai_request_body) }}",
+        "options": { "timeout": 60000 }
+      },
+      "id": "gen-gemini-001",
+      "name": "Gemini Generate Letter",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-256, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst prepItems = $('Prepare Letter Request').all();\nconst results = [];\n\nfor (let i = 0; i < items.length; i++) {\n  const prep = prepItems[i]?.json || prepItems[0]?.json || {};\n  const gemini = items[i].json;\n  const text = gemini.candidates?.[0]?.content?.parts?.[0]?.text || '';\n\n  let draft;\n  try {\n    draft = JSON.parse(text);\n  } catch (e) {\n    draft = {\n      authority_name: 'Stadtverwaltung',\n      authority_email: '',\n      email_subject: 'Sicherheitsmeldung ' + prep.issue_id,\n      email_body_html: '<p>Die automatische Brieferstellung ist fehlgeschlagen. Bitte prüfen Sie die Meldung manuell.</p>'\n    };\n  }\n\n  results.push({\n    json: {\n      issue_id: prep.issue_id,\n      callback_url: prep.callback_url,\n      subject: draft.email_subject || ('Sicherheitsmeldung ' + prep.issue_id),\n      body_html: draft.email_body_html || '<p>(Kein Inhalt)</p>',\n      authority_email: draft.authority_email || '',\n      authority_name: draft.authority_name || 'Stadtverwaltung'\n    }\n  });\n}\n\nreturn results;"
+      },
+      "id": "gen-parse-001",
+      "name": "Parse Letter Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [16, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.callback_url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $vars.DB_API_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ issue_id: $json.issue_id, subject: $json.subject, body_html: $json.body_html, authority_email: $json.authority_email, authority_name: $json.authority_name }) }}",
+        "options": { "timeout": 10000 }
+      },
+      "id": "gen-callback-001",
+      "name": "Send to Convex",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [288, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().map(item => ({\n  json: {\n    success: true,\n    issue_id: $('Parse Letter Response').first().json.issue_id,\n    message: 'Escalation letter generated and sent to Convex'\n  }\n}));"
+      },
+      "id": "gen-response-001",
+      "name": "Prepare Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [560, 400]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [[{ "node": "Prepare Letter Request", "type": "main", "index": 0 }]]
+    },
+    "Prepare Letter Request": {
+      "main": [[{ "node": "Gemini Generate Letter", "type": "main", "index": 0 }]]
+    },
+    "Gemini Generate Letter": {
+      "main": [[{ "node": "Parse Letter Response", "type": "main", "index": 0 }]]
+    },
+    "Parse Letter Response": {
+      "main": [[
+        { "node": "Send to Convex", "type": "main", "index": 0 },
+        { "node": "Prepare Response", "type": "main", "index": 0 }
+      ]]
+    }
+  },
+  "active": true,
+  "settings": { "executionOrder": "v1" },
+  "meta": {
+    "description": "Generates a formal German letter to municipal authorities when a safety concern is detected. Triggered from Convex action; calls Gemini; sends the draft back to Convex for user review."
+  }
+}

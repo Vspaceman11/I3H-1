@@ -154,6 +154,24 @@
     "exclusiveDesc": "Exklusives Pigeon-eye Gold-Abzeichen + 20% in der Stadtgalerie",
     "discount": "Rabatt"
   },
+  "escalation": {
+    "title": "Brief an die Stadtverwaltung",
+    "generating": "Brief wird erstellt…",
+    "generatingHint": "KI verfasst ein formelles Schreiben aufgrund des Sicherheitsrisikos",
+    "draftTitle": "Brief vor dem Senden prüfen",
+    "to": "An",
+    "subject": "Betreff",
+    "confirmQuestion": "Möchten Sie diesen Brief an die Stadtverwaltung senden?",
+    "approve": "Brief senden",
+    "reject": "Nicht senden",
+    "sending": "Brief wird gesendet…",
+    "sent": "Brief an Behörden gesendet",
+    "sentDescription": "Der Brief wurde erfolgreich versendet",
+    "rejected": "Brief nicht gesendet",
+    "rejectedDescription": "Sie haben entschieden, diesen Brief nicht zu senden",
+    "error": "Brieferstellung fehlgeschlagen",
+    "retry": "Erneut versuchen"
+  },
   "status": {
     "open": "Offen",
     "resolved": "Gelöst"

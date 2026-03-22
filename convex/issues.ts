@@ -5,6 +5,7 @@ import {
   internalQuery,
   internalMutation,
   action,
+  internalAction,
 } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -462,6 +463,14 @@ export const updateAnalysis = internalMutation({
         });
       }
     }
+
+    const safetyConcernNow = fields.safety_concern === true;
+    const wasAlreadyGenerating = existing.escalation_letter_status != null;
+    if (safetyConcernNow && !wasAlreadyGenerating) {
+      await ctx.scheduler.runAfter(0, internal.issues.triggerLetterGeneration, {
+        issueId,
+      });
+    }
   },
 });
 
@@ -562,5 +571,260 @@ export const triggerN8nAnalysis = action({
         error: message,
       });
     }
+  },
+});
+
+// ── Escalation letter: mutations ─────────────────────────
+
+export const markLetterGenerating = internalMutation({
+  args: { issueId: v.id("issues") },
+  handler: async (ctx, { issueId }) => {
+    await ctx.db.patch(issueId, {
+      escalation_letter_status: "generating",
+      escalation_letter_error: undefined,
+    });
+  },
+});
+
+export const saveEscalationLetter = internalMutation({
+  args: {
+    issueId: v.id("issues"),
+    subject: v.string(),
+    body: v.string(),
+    to: v.optional(v.string()),
+    authority: v.optional(v.string()),
+  },
+  handler: async (ctx, { issueId, subject, body, to, authority }) => {
+    const issue = await ctx.db.get(issueId);
+    if (!issue) throw new Error(`Issue ${issueId} not found`);
+
+    await ctx.db.patch(issueId, {
+      escalation_letter_subject: subject,
+      escalation_letter_body: body,
+      escalation_letter_to: to,
+      escalation_letter_authority: authority,
+      escalation_letter_status: "draft",
+      escalation_letter_error: undefined,
+    });
+  },
+});
+
+export const markLetterError = internalMutation({
+  args: {
+    issueId: v.id("issues"),
+    error: v.string(),
+  },
+  handler: async (ctx, { issueId, error }) => {
+    await ctx.db.patch(issueId, {
+      escalation_letter_status: "error",
+      escalation_letter_error: error,
+    });
+  },
+});
+
+export const approveEscalationLetter = mutation({
+  args: { issueId: v.id("issues") },
+  handler: async (ctx, { issueId }) => {
+    const issue = await ctx.db.get(issueId);
+    if (!issue) throw new Error("Issue not found");
+    if (issue.escalation_letter_status !== "draft") {
+      throw new Error(`Cannot approve letter with status "${issue.escalation_letter_status}"`);
+    }
+
+    await ctx.db.patch(issueId, {
+      escalation_letter_status: "approved",
+    });
+  },
+});
+
+export const rejectEscalationLetter = mutation({
+  args: { issueId: v.id("issues") },
+  handler: async (ctx, { issueId }) => {
+    const issue = await ctx.db.get(issueId);
+    if (!issue) throw new Error("Issue not found");
+    if (issue.escalation_letter_status !== "draft") {
+      throw new Error(`Cannot reject letter with status "${issue.escalation_letter_status}"`);
+    }
+
+    await ctx.db.patch(issueId, {
+      escalation_letter_status: "rejected",
+    });
+  },
+});
+
+export const markLetterSent = internalMutation({
+  args: { issueId: v.id("issues") },
+  handler: async (ctx, { issueId }) => {
+    await ctx.db.patch(issueId, {
+      escalation_letter_status: "sent",
+    });
+  },
+});
+
+export const markLetterSending = internalMutation({
+  args: { issueId: v.id("issues") },
+  handler: async (ctx, { issueId }) => {
+    await ctx.db.patch(issueId, {
+      escalation_letter_status: "sending",
+    });
+  },
+});
+
+// ── Escalation letter: actions ───────────────────────────
+
+const AUTHORITY_MAP: Record<string, { name: string; dept: string; email: string }> = {
+  roads_department: {
+    name: "Stadtverwaltung Heilbronn",
+    dept: "Tiefbauamt",
+    email: "tiefbauamt@heilbronn.de",
+  },
+  utilities_electric: {
+    name: "Stadtverwaltung Heilbronn",
+    dept: "Stadtwerke — Elektrizität",
+    email: "stadtwerke@heilbronn.de",
+  },
+  utilities_water: {
+    name: "Stadtverwaltung Heilbronn",
+    dept: "Stadtwerke — Wasser",
+    email: "stadtwerke@heilbronn.de",
+  },
+  utilities_gas: {
+    name: "Stadtverwaltung Heilbronn",
+    dept: "Stadtwerke — Gas",
+    email: "stadtwerke@heilbronn.de",
+  },
+  sanitation: {
+    name: "Stadtverwaltung Heilbronn",
+    dept: "Abfallwirtschaft",
+    email: "abfallwirtschaft@heilbronn.de",
+  },
+  parks_department: {
+    name: "Stadtverwaltung Heilbronn",
+    dept: "Grünflächenamt",
+    email: "gruenflaechenamt@heilbronn.de",
+  },
+  police: {
+    name: "Polizeipräsidium Heilbronn",
+    dept: "Polizei",
+    email: "polizei@heilbronn.de",
+  },
+  emergency_services: {
+    name: "Stadtverwaltung Heilbronn",
+    dept: "Ordnungsamt",
+    email: "ordnungsamt@heilbronn.de",
+  },
+  environmental: {
+    name: "Stadtverwaltung Heilbronn",
+    dept: "Umwelt- und Naturschutz",
+    email: "umwelt@heilbronn.de",
+  },
+  general: {
+    name: "Stadtverwaltung Heilbronn",
+    dept: "Bürgeramt — Allgemeine Anfragen",
+    email: "buergeramt@heilbronn.de",
+  },
+};
+
+function buildDemoLetter(issue: {
+  _id: string;
+  category?: string;
+  severity: string;
+  ai_description?: string;
+  user_description?: string;
+  address?: string;
+  latitude?: number;
+  longitude?: number;
+  authority_type?: string;
+}) {
+  const authKey = issue.authority_type ?? "general";
+  const auth = AUTHORITY_MAP[authKey] ?? AUTHORITY_MAP.general;
+
+  const addr = issue.address ?? "Heilbronn (Standort unbekannt)";
+  const desc = issue.ai_description || issue.user_description || "Sicherheitsrelevantes Problem";
+  const cat = issue.category ?? "Allgemein";
+  const mapsLink =
+    issue.latitude && issue.longitude
+      ? `https://maps.google.com/?q=${issue.latitude},${issue.longitude}`
+      : null;
+
+  const subject = `Dringende Meldung: Sicherheitsrisiko — ${cat} (${addr})`;
+
+  const body = [
+    `<p>Sehr geehrte Damen und Herren,</p>`,
+    `<p>über die Bürgermelde-Plattform <strong>Pigeon-eye</strong> wurde eine Meldung mit `,
+    `<strong>Sicherheitsrisiko</strong> eingereicht, die Ihr Zuständigkeitsbereich betrifft.</p>`,
+    `<p><strong>Details zur Meldung:</strong></p>`,
+    `<ul>`,
+    `<li><strong>Kategorie:</strong> ${cat}</li>`,
+    `<li><strong>Schweregrad:</strong> ${issue.severity}</li>`,
+    `<li><strong>Beschreibung:</strong> ${desc}</li>`,
+    `<li><strong>Ort:</strong> ${addr}</li>`,
+    mapsLink ? `<li><strong>Karte:</strong> <a href="${mapsLink}">${mapsLink}</a></li>` : "",
+    `<li><strong>Meldungs-ID:</strong> ${issue._id}</li>`,
+    `</ul>`,
+    `<p>Wir bitten Sie, die Situation zeitnah zu prüfen und geeignete Maßnahmen einzuleiten. `,
+    `Bei Rückfragen stehen wir Ihnen gerne über die Plattform zur Verfügung.</p>`,
+    `<p>Mit freundlichen Grüßen,<br/><strong>Pigeon-eye — Bürgermeldestelle Heilbronn</strong></p>`,
+  ].join("\n");
+
+  return { subject, body, to: auth.email, authority: `${auth.name} — ${auth.dept}` };
+}
+
+export const triggerLetterGeneration = internalAction({
+  args: { issueId: v.id("issues") },
+  handler: async (ctx, { issueId }) => {
+    const issue = await ctx.runQuery(internal.issues.getInternal, { issueId });
+    if (!issue) return;
+
+    await ctx.runMutation(internal.issues.markLetterGenerating, { issueId });
+
+    // Simulate AI generation delay for demo realism
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
+    const letter = buildDemoLetter({
+      _id: String(issueId),
+      category: issue.category ?? undefined,
+      severity: issue.severity,
+      ai_description: issue.ai_description ?? undefined,
+      user_description: issue.user_description ?? undefined,
+      address: issue.address ?? undefined,
+      latitude: issue.latitude ?? undefined,
+      longitude: issue.longitude ?? undefined,
+      authority_type: issue.authority_type ?? undefined,
+    });
+
+    await ctx.runMutation(internal.issues.saveEscalationLetter, {
+      issueId,
+      subject: letter.subject,
+      body: letter.body,
+      to: letter.to,
+      authority: letter.authority,
+    });
+  },
+});
+
+/** Demo stub: marks the letter as "sent" without calling any external service. */
+export const sendApprovedLetter = mutation({
+  args: { issueId: v.id("issues") },
+  handler: async (ctx, { issueId }) => {
+    const issue = await ctx.db.get(issueId);
+    if (!issue) throw new Error("Issue not found");
+    if (
+      issue.escalation_letter_status !== "approved" &&
+      issue.escalation_letter_status !== "draft"
+    ) {
+      throw new Error("Letter must be in draft or approved state");
+    }
+
+    await ctx.db.patch(issueId, {
+      escalation_letter_status: "sent",
+    });
+  },
+});
+
+export const getInternal = internalQuery({
+  args: { issueId: v.id("issues") },
+  handler: async (ctx, { issueId }) => {
+    return await ctx.db.get(issueId);
   },
 });
