@@ -2,35 +2,25 @@
 
 import { Suspense, useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useQuery } from 'convex/react'
+import { useConvexAuth, useQuery } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { Id } from '@/convex/_generated/dataModel'
 import { User, Plus, LocateFixed } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { TaskMap, TaskMapHandle, type ViewportRadiusParams } from '@/components/task-map'
+import { TaskMap, TaskMapHandle } from '@/components/task-map'
 import { PhotoCapture } from '@/components/photo-capture'
 import { ReportForm } from '@/components/report-form'
 import { UserProfile } from '@/components/user-profile'
 import { IssueDetail } from '@/components/issue-detail'
+import { AuthOverlay } from '@/components/auth-overlay'
 
 type View = 'map' | 'photo' | 'report' | 'user' | 'issue-detail'
 
 function HomeContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { isLoading: authLoading, isAuthenticated } = useConvexAuth()
   const allIssues = useQuery(api.issues.list) ?? []
-  const [viewport, setViewport] = useState<ViewportRadiusParams | null>(null)
-  const nearbyIssues =
-    useQuery(
-      api.issues.listInRadius,
-      viewport
-        ? {
-            centerLat: viewport.centerLat,
-            centerLng: viewport.centerLng,
-            radiusMeters: viewport.radiusMeters,
-          }
-        : 'skip',
-    ) ?? []
 
   const [view, setView] = useState<View>('map')
   const [capturedFile, setCapturedFile] = useState<File | null>(null)
@@ -44,10 +34,42 @@ function HomeContent() {
   }, [])
 
   useEffect(() => {
-    if (searchParams.get('view') === 'user') {
-      setView('user')
+    if (searchParams.get('view') !== 'user') return
+    if (authLoading) return
+    if (!isAuthenticated) {
+      router.replace('/?auth=sign-in')
+      return
     }
+    setView('user')
+  }, [searchParams, authLoading, isAuthenticated, router])
+
+  useEffect(() => {
+    const a = searchParams.get('auth')
+    if (a !== 'sign-in' && a !== 'sign-up') return
+    setView((v) => (v === 'user' ? 'map' : v))
   }, [searchParams])
+
+  const openProfileOrAuth = useCallback(() => {
+    if (authLoading) return
+    if (!isAuthenticated) {
+      router.push('/?auth=sign-in')
+      return
+    }
+    setView('user')
+  }, [authLoading, isAuthenticated, router])
+
+  const authParam = searchParams.get('auth')
+  const showAuthOverlay =
+    view === 'map' && (authParam === 'sign-in' || authParam === 'sign-up')
+
+  const showMapFloatingChrome = view === 'map' && !showAuthOverlay
+
+  const closeAuthOverlay = useCallback(() => {
+    const sp = new URLSearchParams(searchParams.toString())
+    sp.delete('auth')
+    const q = sp.toString()
+    router.replace(q ? `/?${q}` : '/')
+  }, [router, searchParams])
 
   const handlePhotoCapture = useCallback((file: File, previewUrl: string) => {
     setCapturedFile(file)
@@ -73,11 +95,7 @@ function HomeContent() {
     setView('map')
   }, [])
 
-  const handleViewportChange = useCallback((p: ViewportRadiusParams) => {
-    setViewport(p)
-  }, [])
-
-  const mapTasks = nearbyIssues.map((issue) => ({
+  const mapTasks = allIssues.map((issue) => ({
     id: issue._id,
     lat: issue.latitude ?? 49.1427,
     lng: issue.longitude ?? 9.2109,
@@ -87,64 +105,38 @@ function HomeContent() {
     imageUrl: issue.resolvedImageUrl,
   }))
 
-  if (view === 'user') {
-    return (
-      <UserProfile
-        issues={allIssues}
-        onBack={() => {
-          setView('map')
-          router.replace('/')
-        }}
-      />
-    )
-  }
-
-  if (view === 'issue-detail' && selectedIssueId) {
-    return (
-      <IssueDetail
-        issueId={selectedIssueId}
-        onBack={() => { setSelectedIssueId(null); setView('map') }}
-      />
-    )
-  }
-
   return (
     <div className="relative h-screen w-screen overflow-hidden">
-      <TaskMap
-        ref={mapRef}
-        tasks={mapTasks}
-        onTaskClick={handleIssueClick}
-        onViewportChange={handleViewportChange}
-      />
+      <TaskMap ref={mapRef} tasks={mapTasks} onTaskClick={handleIssueClick} />
 
-      <Button
-        variant="secondary"
-        size="icon"
-        onClick={() => setView('user')}
-        className="absolute right-4 top-4 z-[1000] h-12 w-12 rounded-full shadow-lg bg-card border border-border"
-      >
-        <User className="h-5 w-5" />
-      </Button>
+      {showMapFloatingChrome && (
+        <>
+          <Button
+            variant="secondary"
+            size="icon"
+            onClick={openProfileOrAuth}
+            className="absolute right-4 top-4 z-[1000] h-12 w-12 rounded-full shadow-lg bg-card border border-border"
+          >
+            <User className="h-5 w-5" />
+          </Button>
 
-      {view === 'map' && (
-        <Button
-          variant="secondary"
-          size="icon"
-          onClick={() => mapRef.current?.centerOnUser()}
-          className="absolute bottom-8 right-4 z-[1000] h-12 w-12 rounded-full shadow-lg bg-card border border-border"
-        >
-          <LocateFixed className="h-5 w-5 text-primary" />
-        </Button>
-      )}
+          <Button
+            variant="secondary"
+            size="icon"
+            onClick={() => mapRef.current?.centerOnUser()}
+            className="absolute bottom-8 right-4 z-[1000] h-12 w-12 rounded-full shadow-lg bg-card border border-border"
+          >
+            <LocateFixed className="h-5 w-5 text-primary" />
+          </Button>
 
-      {view === 'map' && (
-        <Button
-          onClick={() => setView('photo')}
-          className="absolute bottom-8 left-1/2 z-[1000] h-14 w-14 -translate-x-1/2 rounded-full shadow-xl"
-          size="icon"
-        >
-          <Plus className="h-6 w-6" />
-        </Button>
+          <Button
+            onClick={() => setView('photo')}
+            className="absolute bottom-8 left-1/2 z-[1000] h-14 w-14 -translate-x-1/2 rounded-full shadow-xl"
+            size="icon"
+          >
+            <Plus className="h-6 w-6" />
+          </Button>
+        </>
       )}
 
       {view === 'photo' && (
@@ -161,6 +153,36 @@ function HomeContent() {
           previewUrl={capturedPreview}
           onBack={closeOverlay}
           onDone={handleReportDone}
+        />
+      )}
+
+      {showAuthOverlay && (
+        <AuthOverlay
+          initialFlow={authParam === 'sign-up' ? 'signUp' : 'signIn'}
+          onClose={closeAuthOverlay}
+          onSignedIn={() => {
+            window.location.href = '/?view=user'
+          }}
+        />
+      )}
+
+      {view === 'user' && (
+        <UserProfile
+          issues={allIssues}
+          onBack={() => {
+            setView('map')
+            router.replace('/')
+          }}
+        />
+      )}
+
+      {view === 'issue-detail' && selectedIssueId && (
+        <IssueDetail
+          issueId={selectedIssueId}
+          onBack={() => {
+            setSelectedIssueId(null)
+            setView('map')
+          }}
         />
       )}
     </div>

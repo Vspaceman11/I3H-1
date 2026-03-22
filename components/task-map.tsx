@@ -9,7 +9,6 @@ export type { TaskMapHandle, MapIssue, ViewportRadiusParams }
 interface TaskMapProps {
   tasks: MapIssue[]
   onTaskClick?: (id: string) => void
-  onViewportChange?: (params: ViewportRadiusParams) => void
 }
 
 const TaskMapDynamic = dynamic(

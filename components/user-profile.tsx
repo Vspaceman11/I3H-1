@@ -5,9 +5,10 @@ import { useQuery } from 'convex/react'
 import { useAuthActions } from '@convex-dev/auth/react'
 import { useConvexAuth } from 'convex/react'
 import { api } from '@/convex/_generated/api'
-import { ArrowLeft, CheckCircle, Clock, AlertTriangle, LogOut, User, UserPlus } from 'lucide-react'
+import { CheckCircle, Clock, AlertTriangle, LogOut, User, UserPlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { MapOverlayShell } from '@/components/map-overlay-shell'
 
 interface Issue {
   _id: string
@@ -61,18 +62,8 @@ export function UserProfile({ issues, onBack }: UserProfileProps) {
   const avatarFallback = displayName.split(/\s+/).map((n) => n[0]).join('').slice(0, 2).toUpperCase() || 'PE'
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
-      <header className="sticky top-0 z-10 border-b border-border bg-card/95 backdrop-blur">
-        <div className="flex items-center gap-3 px-4 py-3">
-          <Button variant="ghost" size="icon" onClick={onBack}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <h1 className="text-lg font-semibold text-card-foreground">Profile</h1>
-        </div>
-      </header>
-
-      <main className="flex-1 p-4">
-        <div className="mx-auto max-w-lg space-y-6">
+    <MapOverlayShell title="Profile" onClose={onBack}>
+      <div className="space-y-4 p-4">
           {isLoading ? (
             <div className="rounded-xl bg-card border border-border p-8 text-center text-muted-foreground">
               <div className="mx-auto mb-3 h-8 w-8 animate-pulse rounded bg-muted" />
@@ -170,14 +161,14 @@ export function UserProfile({ issues, onBack }: UserProfileProps) {
           ) : (
             <div className="rounded-xl bg-card border border-border divide-y divide-border">
               <Link
-                href="/sign-in"
+                href="/?auth=sign-in"
                 className="flex w-full items-center gap-3 p-4 text-left hover:bg-muted/50 transition-colors"
               >
                 <User className="h-5 w-5 text-muted-foreground" />
                 <span className="text-card-foreground">Sign In</span>
               </Link>
               <Link
-                href="/sign-up"
+                href="/?auth=sign-up"
                 className="flex w-full items-center gap-3 p-4 text-left hover:bg-muted/50 transition-colors"
               >
                 <UserPlus className="h-5 w-5 text-muted-foreground" />
@@ -185,8 +176,7 @@ export function UserProfile({ issues, onBack }: UserProfileProps) {
               </Link>
             </div>
           )}
-        </div>
-      </main>
-    </div>
+      </div>
+    </MapOverlayShell>
   )
 }

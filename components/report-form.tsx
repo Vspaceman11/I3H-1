@@ -1,13 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { ArrowLeft, Sparkles, MapPin, Image as ImageIcon, Loader2, Send } from 'lucide-react'
+import { Sparkles, MapPin, Image as ImageIcon, Loader2, Send } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { useMutation, useAction } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { Id } from '@/convex/_generated/dataModel'
+import { MapOverlayShell } from '@/components/map-overlay-shell'
 
 interface ReportFormProps {
   file: File
@@ -15,6 +16,8 @@ interface ReportFormProps {
   onBack: () => void
   onDone: (issueId: Id<"issues">) => void
 }
+
+const FORM_ID = 'report-issue-form'
 
 export function ReportForm({ file, previewUrl, onBack, onDone }: ReportFormProps) {
   const generateUploadUrl = useMutation(api.issues.generateUploadUrl)
@@ -87,96 +90,80 @@ export function ReportForm({ file, previewUrl, onBack, onDone }: ReportFormProps
   }
 
   return (
-    <>
-      <div className="fixed inset-0 z-[1001] bg-black/40 backdrop-blur-sm" onClick={onBack} />
-
-      <div className="fixed bottom-0 left-0 right-0 z-[1002] flex max-h-[92vh] flex-col rounded-t-2xl bg-card border-t border-border shadow-2xl">
-        <div className="flex shrink-0 justify-center pt-3 pb-1">
-          <div className="h-1 w-10 rounded-full bg-muted-foreground/30" />
-        </div>
-
-        <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3">
-          <Button variant="ghost" size="icon" onClick={onBack}>
-            <ArrowLeft className="h-5 w-5" />
+    <MapOverlayShell
+      title="Report Issue"
+      onClose={onBack}
+      footer={
+        <div className="flex items-center justify-between gap-2">
+          <Button variant="outline" type="button" onClick={onBack} disabled={isUploading}>
+            Cancel
           </Button>
-          <h1 className="text-lg font-semibold text-card-foreground">Report Issue</h1>
-          <div className="w-9" />
-        </div>
-
-        <div className="flex-1 overflow-y-auto">
-          <form onSubmit={handleSubmit} className="p-4 pb-8 space-y-5">
-            <div className="relative overflow-hidden rounded-xl bg-muted">
-              <div className="aspect-[16/9]">
-                <img src={previewUrl} alt="Issue photo" className="h-full w-full object-cover" />
-              </div>
-              <div className="absolute bottom-2 right-2 flex items-center gap-1 rounded-full bg-card/90 px-2 py-1 text-xs text-card-foreground backdrop-blur">
-                <ImageIcon className="h-3 w-3" />
-                Photo attached
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 rounded-lg bg-primary/10 p-3">
-              <Sparkles className="h-5 w-5 text-primary" />
-              <div className="flex-1">
-                <p className="text-sm font-medium text-foreground">AI Analysis</p>
-                <p className="text-xs text-muted-foreground">
-                  The photo will be analyzed by AI after upload
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="description">Description (optional)</Label>
-              <Textarea
-                id="description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Describe the issue…"
-                rows={3}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Location</Label>
-              <div className="flex items-center gap-2 rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                <MapPin className="h-4 w-4 text-muted-foreground" />
-                {location ? (
-                  <span className="text-foreground">
-                    {location.lat.toFixed(4)}, {location.lng.toFixed(4)}
-                  </span>
-                ) : (
-                  <span className="text-muted-foreground">Getting location…</span>
-                )}
-              </div>
-            </div>
-
-            {uploadError && (
-              <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
-                {uploadError}
-              </div>
+          <Button type="submit" form={FORM_ID} disabled={isUploading}>
+            {isUploading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Uploading…
+              </>
+            ) : (
+              <>
+                <Send className="mr-2 h-4 w-4" />
+                Submit Report
+              </>
             )}
-
-            <Button
-              type="submit"
-              className="w-full"
-              size="lg"
-              disabled={isUploading}
-            >
-              {isUploading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Uploading…
-                </>
-              ) : (
-                <>
-                  <Send className="mr-2 h-4 w-4" />
-                  Submit Report
-                </>
-              )}
-            </Button>
-          </form>
+          </Button>
         </div>
-      </div>
-    </>
+      }
+    >
+      <form id={FORM_ID} onSubmit={handleSubmit} className="space-y-4 p-4">
+        <div className="relative overflow-hidden rounded-xl bg-muted">
+          <div className="aspect-[16/10] max-h-[28vh]">
+            <img src={previewUrl} alt="Issue photo" className="h-full w-full object-cover" />
+          </div>
+          <div className="absolute bottom-2 right-2 flex items-center gap-1 rounded-full bg-card/90 px-2 py-1 text-xs text-card-foreground backdrop-blur">
+            <ImageIcon className="h-3 w-3" />
+            Photo attached
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 rounded-lg bg-primary/10 p-3">
+          <Sparkles className="h-5 w-5 shrink-0 text-primary" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-foreground">AI Analysis</p>
+            <p className="text-xs text-muted-foreground">
+              The photo will be analyzed by AI after upload
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="description">Description (optional)</Label>
+          <Textarea
+            id="description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Describe the issue…"
+            rows={3}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Location</Label>
+              <div className="flex items-center gap-2 rounded-lg border border-input bg-field px-3 py-2 text-sm">
+            <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
+            {location ? (
+              <span className="text-foreground">
+                {location.lat.toFixed(4)}, {location.lng.toFixed(4)}
+              </span>
+            ) : (
+              <span className="text-muted-foreground">Getting location…</span>
+            )}
+          </div>
+        </div>
+
+        {uploadError && (
+          <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{uploadError}</div>
+        )}
+      </form>
+    </MapOverlayShell>
   )
 }
