@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { Suspense, useState, useEffect, useRef, useCallback } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { Id } from '@/convex/_generated/dataModel'
@@ -14,7 +15,9 @@ import { IssueDetail } from '@/components/issue-detail'
 
 type View = 'map' | 'photo' | 'report' | 'user' | 'issue-detail'
 
-export default function Home() {
+function HomeContent() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const allIssues = useQuery(api.issues.list) ?? []
   const [viewport, setViewport] = useState<ViewportRadiusParams | null>(null)
   const nearbyIssues =
@@ -39,6 +42,12 @@ export default function Home() {
   useEffect(() => {
     setIsMobile(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent))
   }, [])
+
+  useEffect(() => {
+    if (searchParams.get('view') === 'user') {
+      setView('user')
+    }
+  }, [searchParams])
 
   const handlePhotoCapture = useCallback((file: File, previewUrl: string) => {
     setCapturedFile(file)
@@ -79,7 +88,15 @@ export default function Home() {
   }))
 
   if (view === 'user') {
-    return <UserProfile issues={allIssues} onBack={() => setView('map')} />
+    return (
+      <UserProfile
+        issues={allIssues}
+        onBack={() => {
+          setView('map')
+          router.replace('/')
+        }}
+      />
+    )
   }
 
   if (view === 'issue-detail' && selectedIssueId) {
@@ -147,5 +164,13 @@ export default function Home() {
         />
       )}
     </div>
+  )
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<div className="flex h-screen w-screen items-center justify-center">Loading…</div>}>
+      <HomeContent />
+    </Suspense>
   )
 }

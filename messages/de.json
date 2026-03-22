@@ -84,6 +84,21 @@
     "rank": "Rang",
     "empty": "Noch keine Teilnehmer"
   },
+  "auth": {
+    "signIn": "Anmelden",
+    "signUp": "Registrieren",
+    "signOut": "Abmelden",
+    "email": "E-Mail",
+    "password": "Passwort",
+    "name": "Name",
+    "signInTitle": "Anmelden",
+    "signUpTitle": "Registrieren",
+    "signInSubtitle": "Melden Sie sich bei Ihrem Pigeon-eye-Konto an",
+    "signUpSubtitle": "Erstellen Sie ein Konto, um Stadtprobleme zu melden",
+    "noAccount": "Noch kein Konto?",
+    "haveAccount": "Bereits ein Konto?",
+    "backToMap": "← Zurück zur Karte"
+  },
   "profile": {
     "title": "Profil",
     "myReports": "Meine Meldungen",

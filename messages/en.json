@@ -84,6 +84,21 @@
     "rank": "Rank",
     "empty": "No participants yet"
   },
+  "auth": {
+    "signIn": "Sign In",
+    "signUp": "Sign Up",
+    "signOut": "Sign Out",
+    "email": "Email",
+    "password": "Password",
+    "name": "Name",
+    "signInTitle": "Sign In",
+    "signUpTitle": "Sign Up",
+    "signInSubtitle": "Sign in to your Pigeon-eye account",
+    "signUpSubtitle": "Create a new account to report city issues",
+    "noAccount": "Don't have an account?",
+    "haveAccount": "Already have an account?",
+    "backToMap": "← Back to map"
+  },
   "profile": {
     "title": "Profile",
     "myReports": "My Reports",
