@@ -189,15 +189,26 @@ export function NewTaskForm({ photo, thumbnail, onBack, onSubmit }: NewTaskFormP
               </div>
             </div>
 
-            {/* Submit */}
-            <Button
-              type="submit"
-              className="w-full"
-              size="lg"
-              disabled={isGenerating || !title || !description}
-            >
-              Create Task
-            </Button>
+            {/* Actions */}
+            <div className="flex gap-3 pt-1">
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1"
+                size="lg"
+                onClick={onBack}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                className="flex-1"
+                size="lg"
+                disabled={isGenerating || !title || !description}
+              >
+                Create Task
+              </Button>
+            </div>
           </form>
         </div>
       </div>

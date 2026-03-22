@@ -96,6 +96,11 @@ export function PhotoCapture({ onPhotoCapture, onClose, autoStart = false }: Pho
     }
   }
 
+  const handleCancel = useCallback(() => {
+    stopCamera()
+    onClose()
+  }, [stopCamera, onClose])
+
   return (
     <>
       <div
@@ -137,34 +142,39 @@ export function PhotoCapture({ onPhotoCapture, onClose, autoStart = false }: Pho
 
           <canvas ref={canvasRef} className="hidden" />
 
-          <div className="mt-4 flex gap-3">
-            {capturedFile ? (
-              <>
-                <Button variant="outline" className="flex-1" onClick={retakePhoto}>
-                  <RotateCcw className="mr-2 h-4 w-4" />
-                  Retake
-                </Button>
-                <Button className="flex-1" onClick={confirmPhoto}>
-                  Use Photo
-                </Button>
-              </>
-            ) : isCameraActive ? (
-              <Button className="flex-1" onClick={capturePhoto}>
-                <Camera className="mr-2 h-4 w-4" />
-                Capture
-              </Button>
-            ) : (
-              <>
-                <Button variant="outline" className="flex-1" onClick={startCamera}>
+          <div className="mt-4 space-y-3">
+            <div className="flex gap-3">
+              {capturedFile ? (
+                <>
+                  <Button variant="outline" className="flex-1" onClick={retakePhoto}>
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                    Retake
+                  </Button>
+                  <Button className="flex-1" onClick={confirmPhoto}>
+                    Use Photo
+                  </Button>
+                </>
+              ) : isCameraActive ? (
+                <Button className="w-full" onClick={capturePhoto}>
                   <Camera className="mr-2 h-4 w-4" />
-                  Camera
+                  Capture
                 </Button>
-                <Button variant="outline" className="flex-1" onClick={() => fileInputRef.current?.click()}>
-                  <Upload className="mr-2 h-4 w-4" />
-                  Upload
-                </Button>
-              </>
-            )}
+              ) : (
+                <>
+                  <Button variant="outline" className="flex-1" onClick={startCamera}>
+                    <Camera className="mr-2 h-4 w-4" />
+                    Camera
+                  </Button>
+                  <Button variant="outline" className="flex-1" onClick={() => fileInputRef.current?.click()}>
+                    <Upload className="mr-2 h-4 w-4" />
+                    Upload
+                  </Button>
+                </>
+              )}
+            </div>
+            <Button variant="outline" className="w-full" type="button" onClick={handleCancel}>
+              Cancel
+            </Button>
           </div>
 
           <input

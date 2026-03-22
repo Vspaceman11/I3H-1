@@ -132,6 +132,71 @@ export const list = query({
   },
 });
 
+/** Haversine distance in meters (Earth mean radius). */
+function distanceMeters(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
+): number {
+  const R = 6371000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(a)));
+}
+
+/**
+ * Issues within a great-circle radius of a point. Used by the map for the visible area
+ * (center + radius covering the viewport). Scans issues table; add a geo index strategy if volume grows.
+ */
+export const listInRadius = query({
+  args: {
+    centerLat: v.number(),
+    centerLng: v.number(),
+    radiusMeters: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const maxRadius = 500_000;
+    const radiusMeters = Math.min(Math.max(args.radiusMeters, 1), maxRadius);
+
+    const all = await ctx.db.query("issues").collect();
+    const withCoords = all.filter(
+      (i): i is typeof i & { latitude: number; longitude: number } =>
+        typeof i.latitude === "number" && typeof i.longitude === "number",
+    );
+
+    const inRange = withCoords
+      .map((issue) => ({
+        issue,
+        d: distanceMeters(
+          args.centerLat,
+          args.centerLng,
+          issue.latitude,
+          issue.longitude,
+        ),
+      }))
+      .filter(({ d }) => d <= radiusMeters)
+      .sort((a, b) => a.d - b.d)
+      .slice(0, 200)
+      .map(({ issue }) => issue);
+
+    const withUrls = await Promise.all(
+      inRange.map(async (issue) => {
+        let url: string | null = null;
+        if (issue.storageId) {
+          url = await ctx.storage.getUrl(issue.storageId);
+        }
+        return { ...issue, resolvedImageUrl: url ?? issue.image_url ?? null };
+      }),
+    );
+    return withUrls;
+  },
+});
+
 export const get = query({
   args: { id: v.id("issues") },
   handler: async (ctx, { id }) => {

@@ -2,13 +2,14 @@
 
 import dynamic from 'next/dynamic'
 import { forwardRef } from 'react'
-import type { TaskMapHandle, MapIssue } from './task-map-inner'
+import type { TaskMapHandle, MapIssue, ViewportRadiusParams } from './task-map-inner'
 
-export type { TaskMapHandle, MapIssue }
+export type { TaskMapHandle, MapIssue, ViewportRadiusParams }
 
 interface TaskMapProps {
   tasks: MapIssue[]
   onTaskClick?: (id: string) => void
+  onViewportChange?: (params: ViewportRadiusParams) => void
 }
 
 const TaskMapDynamic = dynamic(
@@ -22,5 +23,5 @@ const TaskMapDynamic = dynamic(
 export const TaskMap = forwardRef<TaskMapHandle, TaskMapProps>(
   function TaskMap(props, ref) {
     return <TaskMapDynamic {...props} ref={ref} />
-  }
+  },
 )

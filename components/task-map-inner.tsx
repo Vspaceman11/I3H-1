@@ -18,9 +18,17 @@ export interface MapIssue {
   imageUrl?: string | null
 }
 
+export interface ViewportRadiusParams {
+  centerLat: number
+  centerLng: number
+  radiusMeters: number
+}
+
 interface TaskMapInnerProps {
   tasks: MapIssue[]
   onTaskClick?: (id: string) => void
+  /** Fired when the map is ready and after pan/zoom; drives Convex `listInRadius`. */
+  onViewportChange?: (params: ViewportRadiusParams) => void
 }
 
 const severityColors: Record<string, string> = {
@@ -36,12 +44,18 @@ const statusSymbol: Record<string, string> = {
   error: '!',
 }
 
+/** Initial map center/zoom before the user pans or uses “locate”. Heilbronn area (product default). */
+const DEFAULT_MAP_CENTER: [number, number] = [49.1427, 9.2109]
+const DEFAULT_MAP_ZOOM = 14
+
 export const TaskMapInner = forwardRef<TaskMapHandle, TaskMapInnerProps>(
-  function TaskMapInner({ tasks, onTaskClick }, ref) {
+  function TaskMapInner({ tasks, onTaskClick, onViewportChange }, ref) {
     const mapContainerRef = useRef<HTMLDivElement>(null)
     const mapRef = useRef<L.Map | null>(null)
     const markersRef = useRef<L.Marker[]>([])
     const userMarkerRef = useRef<L.Marker | null>(null)
+    const onViewportChangeRef = useRef(onViewportChange)
+    onViewportChangeRef.current = onViewportChange
 
     useImperativeHandle(ref, () => ({
       centerOnUser() {
@@ -74,7 +88,29 @@ export const TaskMapInner = forwardRef<TaskMapHandle, TaskMapInnerProps>(
     useEffect(() => {
       if (!mapContainerRef.current || mapRef.current) return
 
-      mapRef.current = L.map(mapContainerRef.current).setView([49.1427, 9.2109], 14)
+      const map = L.map(mapContainerRef.current).setView(DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM)
+      mapRef.current = map
+
+      const reportViewport = () => {
+        const b = map.getBounds()
+        const center = b.getCenter()
+        const sw = b.getSouthWest()
+        const ne = b.getNorthEast()
+        const nw = L.latLng(ne.lat, sw.lng)
+        const se = L.latLng(sw.lat, ne.lng)
+        const radiusMeters = Math.max(
+          center.distanceTo(sw),
+          center.distanceTo(ne),
+          center.distanceTo(nw),
+          center.distanceTo(se),
+          50,
+        )
+        onViewportChangeRef.current?.({
+          centerLat: center.lat,
+          centerLng: center.lng,
+          radiusMeters,
+        })
+      }
 
       L.tileLayer(
         'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
@@ -84,13 +120,17 @@ export const TaskMapInner = forwardRef<TaskMapHandle, TaskMapInnerProps>(
           maxZoom: 20,
           subdomains: ['a', 'b', 'c', 'd'],
         },
-      ).addTo(mapRef.current)
+      ).addTo(map)
+
+      map.whenReady(reportViewport)
+      map.on('moveend', reportViewport)
+      map.on('zoomend', reportViewport)
 
       return () => {
-        if (mapRef.current) {
-          mapRef.current.remove()
-          mapRef.current = null
-        }
+        map.off('moveend', reportViewport)
+        map.off('zoomend', reportViewport)
+        map.remove()
+        mapRef.current = null
       }
     }, [])
 
