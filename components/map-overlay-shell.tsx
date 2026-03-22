@@ -39,7 +39,7 @@ export function MapOverlayShell({
       <div className="fixed inset-0 z-[1002] flex items-center justify-center p-4 pointer-events-none">
         <div
           className={cn(
-            'pointer-events-auto flex max-h-[85vh] flex-col overflow-hidden rounded-xl border border-border bg-card shadow-2xl',
+            'pointer-events-auto flex max-h-[85vh] flex-col overflow-hidden rounded-xl border border-border bg-popup-panel shadow-2xl',
             MAP_OVERLAY_PANEL_CLASS,
             panelClassName,
           )}
@@ -67,7 +67,7 @@ export function MapOverlayShell({
             {children}
           </div>
           {footer ? (
-            <div className="shrink-0 border-t border-border bg-card px-4 py-3 text-card-foreground">
+            <div className="shrink-0 border-t border-border px-4 py-3 text-card-foreground">
               {footer}
             </div>
           ) : null}

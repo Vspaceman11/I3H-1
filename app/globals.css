@@ -41,6 +41,8 @@
   --sidebar-border: #474e64;
   --sidebar-ring: #9d8af7;
   --map-canvas: #e8eaf0;
+  /* Floating panels: subtle diagonal (matches issue-details sketch) */
+  --popup-panel-gradient: linear-gradient(135deg, #2c2e33 0%, #255049 100%);
 }
 
 .dark {
@@ -142,5 +144,9 @@
 
   .task-map .leaflet-tile-pane {
     filter: saturate(0.96) brightness(1.02) contrast(1.02);
+  }
+
+  .bg-popup-panel {
+    background: var(--popup-panel-gradient);
   }
 }
