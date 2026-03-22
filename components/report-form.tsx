@@ -5,7 +5,7 @@ import { Sparkles, MapPin, Image as ImageIcon, Loader2, Send } from 'lucide-reac
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { useMutation, useAction } from 'convex/react'
+import { useMutation, useAction, useQuery } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { Id } from '@/convex/_generated/dataModel'
 import { MapOverlayShell } from '@/components/map-overlay-shell'
@@ -21,9 +21,9 @@ const FORM_ID = 'report-issue-form'
 
 export function ReportForm({ file, previewUrl, onBack, onDone }: ReportFormProps) {
   const generateUploadUrl = useMutation(api.issues.generateUploadUrl)
-  const createUser = useMutation(api.users.create)
   const createIssue = useMutation(api.issues.createFromUpload)
   const triggerAnalysis = useAction(api.issues.triggerN8nAnalysis)
+  const currentUser = useQuery(api.users.currentUser)
 
   const [description, setDescription] = useState('')
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null)
@@ -43,15 +43,14 @@ export function ReportForm({ file, previewUrl, onBack, onDone }: ReportFormProps
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!currentUser) {
+      setUploadError('You must be signed in to submit a report.')
+      return
+    }
     setIsUploading(true)
     setUploadError(null)
 
     try {
-      const userResult = await createUser({
-        name: "anonymous",
-        email: "anonymous@pigeon-eye.local",
-      })
-
       const uploadUrl = await generateUploadUrl()
       const uploadResponse = await fetch(uploadUrl, {
         method: "POST",
@@ -65,7 +64,7 @@ export function ReportForm({ file, previewUrl, onBack, onDone }: ReportFormProps
 
       const issueId = await createIssue({
         storageId,
-        user_id: userResult.id,
+        user_id: currentUser._id,
         user_description: description || undefined,
         latitude: location?.lat,
         longitude: location?.lng,
@@ -74,7 +73,7 @@ export function ReportForm({ file, previewUrl, onBack, onDone }: ReportFormProps
       triggerAnalysis({
         issueId,
         storageId,
-        userId: userResult.id,
+        userId: currentUser._id,
         userDescription: description || undefined,
         latitude: location?.lat,
         longitude: location?.lng,

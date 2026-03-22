@@ -130,7 +130,13 @@ function HomeContent() {
           </Button>
 
           <Button
-            onClick={() => setView('photo')}
+            onClick={() => {
+              if (!isAuthenticated) {
+                router.push('/?auth=sign-in')
+                return
+              }
+              setView('photo')
+            }}
             className="absolute bottom-8 left-1/2 z-[1000] h-14 w-14 -translate-x-1/2 rounded-full shadow-xl"
             size="icon"
           >
