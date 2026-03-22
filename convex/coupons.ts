@@ -15,6 +15,7 @@ export const redeemReward = mutation({
     user_id: v.id("users"),
     reward_name: v.string(),
     points_cost: v.number(),
+    discount_percent: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const user = await ctx.db.get(args.user_id);
