@@ -131,7 +131,7 @@ function HomeContent() {
               }
               setView('rewards')
             }}
-            className="absolute left-4 top-4 z-[1000] h-12 w-12 rounded-full shadow-lg bg-card border border-border"
+            className="absolute right-4 top-20 z-[1000] h-12 w-12 rounded-full shadow-lg bg-card border border-border"
           >
             <Gift className="h-5 w-5 text-amber-500" />
           </Button>
