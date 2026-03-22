@@ -2,10 +2,12 @@ import { v } from "convex/values";
 import {
   query,
   mutation,
+  internalQuery,
   internalMutation,
   action,
 } from "./_generated/server";
 import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 
 const POINTS_BY_SEVERITY = { EASY: 5, MEDIUM: 10, HIGH: 20 } as const;
 
@@ -69,6 +71,33 @@ export const getByIssueId = query({
       .query("issues")
       .withIndex("by_issue_id", (q) => q.eq("issue_id", args.issue_id))
       .first();
+  },
+});
+
+/**
+ * POST /api/issues: if the body sends Convex document id as issue_id (e.g. n8n forwards it from
+ * triggerN8nAnalysis), merge into that document instead of inserting a second row.
+ */
+export const resolveIssueForHttpPost = internalQuery({
+  args: { identifier: v.string() },
+  handler: async (ctx, { identifier }) => {
+    const byCustomIssueId = await ctx.db
+      .query("issues")
+      .withIndex("by_issue_id", (q) => q.eq("issue_id", identifier))
+      .first();
+    if (byCustomIssueId) {
+      return { kind: "by_issue_id" as const, id: byCustomIssueId._id };
+    }
+
+    try {
+      const byConvexId = await ctx.db.get(identifier as Id<"issues">);
+      if (byConvexId) {
+        return { kind: "by_convex_id" as const, id: byConvexId._id };
+      }
+    } catch {
+      // identifier is not a valid Convex id
+    }
+    return { kind: "none" as const, id: null };
   },
 });
 
@@ -264,6 +293,16 @@ export const updateAnalysis = internalMutation({
     safety_concern: v.optional(v.boolean()),
     authority_type: v.optional(v.string()),
     address: v.optional(v.string()),
+    image_url: v.optional(v.string()),
+    status: v.optional(
+      v.union(
+        v.literal("open"),
+        v.literal("in_review"),
+        v.literal("approved"),
+        v.literal("rejected"),
+        v.literal("resolved"),
+      ),
+    ),
     n8nExecutionId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
