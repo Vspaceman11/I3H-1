@@ -53,7 +53,7 @@ http.route({
         identifier: issueId,
       });
 
-      if (resolved.kind === "by_convex_id") {
+      if (resolved.kind === "by_convex_id" || resolved.kind === "by_issue_id") {
         await ctx.runMutation(internal.issues.updateAnalysis, {
           issueId: resolved.id,
           severity: parseSeverity(body.severity),
@@ -158,6 +158,14 @@ function parseStatusOptional(
   return undefined;
 }
 
+http.route({
+  path: "/api/issues",
+  method: "OPTIONS",
+  handler: httpAction(async () => {
+    return new Response(null, { status: 204, headers: CORS_HEADERS });
+  }),
+});
+
 // ── n8n callback: analysis results ───────────────────────
 
 http.route({
@@ -185,19 +193,32 @@ http.route({
       });
     }
 
-    const issueId = String(body.issue_id ?? "");
-    if (!issueId) {
+    const rawIssueId = String(body.issue_id ?? "");
+    if (!rawIssueId) {
       return new Response(
         JSON.stringify({ error: "issue_id is required" }),
         { status: 400, headers: { "Content-Type": "application/json", ...CORS_HEADERS } },
       );
     }
 
+    const resolved = await ctx.runQuery(internal.issues.resolveIssueForHttpPost, {
+      identifier: rawIssueId,
+    });
+
+    if (!resolved.id) {
+      return new Response(
+        JSON.stringify({ error: `Issue not found: ${rawIssueId}` }),
+        { status: 404, headers: { "Content-Type": "application/json", ...CORS_HEADERS } },
+      );
+    }
+
+    const issueId = resolved.id;
+
     const isError = body.error === true || typeof body.error_message === "string";
 
     if (isError) {
       await ctx.runMutation(internal.issues.markAnalysisError, {
-        issueId: issueId as never,
+        issueId,
         error: String(body.error_message ?? "Unknown n8n error"),
       });
       return new Response(JSON.stringify({ success: true, recorded: "error" }), {
@@ -208,7 +229,7 @@ http.route({
 
     try {
       await ctx.runMutation(internal.issues.updateAnalysis, {
-        issueId: issueId as never,
+        issueId,
         severity: parseSeverity(body.severity),
         category: optStr(body.category),
         ai_description: optStr(body.ai_description),

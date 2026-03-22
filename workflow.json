@@ -1,0 +1,795 @@
+{
+  "name": "City Reporter - Issue Processing",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "city-reporter/submit-issue",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "ff3b10e8-4907-4124-923d-722c9f3e77d0",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -2400,
+        400
+      ],
+      "webhookId": "city-reporter-webhook-001"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const raw = item.json;\n  const input = raw.body || raw;\n\n  const imageUrl = input.imageUrl || input.image_url || null;\n  const imageBase64 = input.image_base64 || null;\n\n  if (!imageUrl && !imageBase64) {\n    throw new Error('An image is required. Send image_url or image_base64. Keys received: ' + Object.keys(input).join(', '));\n  }\n\n  const marker =\n    input.issue_id ||\n    input.issueId ||\n    input.id ||\n    input.analysis_id ||\n    input.analysisId ||\n    input.storage_id ||\n    input.storageId ||\n    input.last_update?.issue_id ||\n    input.lastUpdate?.issueId ||\n    input.existing_issue?.issue_id ||\n    input.existingIssue?.id ||\n    null;\n\n  if (!marker) {\n    throw new Error('Missing issue marker. Provide issue_id / issueId / id from the user-created record.');\n  }\n\n  const issueId = String(marker);\n\n  let lat = 0;\n  let lon = 0;\n  let addr = 'Unknown';\n  if (input.location) {\n    lat = parseFloat(input.location.latitude) || 0;\n    lon = parseFloat(input.location.longitude) || 0;\n    addr = input.location.address || 'Unknown';\n  }\n  if (lat === 0 && lon === 0) {\n    lat = parseFloat(input.latitude) || 0;\n    lon = parseFloat(input.longitude) || 0;\n  }\n\n  const callbackUrl = input.callback_url || input.callbackUrl || null;\n\n  results.push({\n    json: {\n      analysis_id: issueId,\n      issue_id: issueId,\n      marker_id: issueId,\n      storage_id: input.storageId || input.storage_id || null,\n      user_id: input.user_id || 'anonymous',\n      image_url: imageUrl,\n      image_base64: imageBase64,\n      image_mime: input.image_mime || 'image/jpeg',\n      needs_image_fetch: imageUrl && !imageBase64 ? true : false,\n      callback_url: callbackUrl,\n      location: {\n        latitude: lat,\n        longitude: lon,\n        address: addr,\n      },\n      description: input.user_description || input.description || '',\n      timestamp: input.timestamp || input.created_at || new Date().toISOString(),\n      validated_at: new Date().toISOString(),\n    },\n  });\n}\n\nreturn results;"
+      },
+      "id": "11798deb-c822-474f-9f48-87cdffd01594",
+      "name": "Validate Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2128,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": ""
+          },
+          "conditions": [
+            {
+              "id": "cond-image-url-check",
+              "leftValue": "={{ $json.needs_image_fetch }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "9c436c30-4145-4add-9a74-99145423ed1f",
+      "name": "Has Image URL?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -1840,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.image_url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "CityReporterApp/1.0"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "id": "c3bd0ec2-6a38-406a-a1f7-f3565c849b89",
+      "name": "Fetch Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1616,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst originalData = $('Validate Input').first().json;\nconst results = [];\n\nfor (const item of items) {\n  let imageBase64 = originalData.image_base64;\n  let imageMime = originalData.image_mime || 'image/jpeg';\n\n  if (item.binary && item.binary.data) {\n    const binaryBuffer = await this.helpers.getBinaryDataBuffer(item.index ?? 0, 'data');\n    imageBase64 = binaryBuffer.toString('base64');\n    imageMime = item.binary.data.mimeType || 'image/jpeg';\n  }\n\n  results.push({\n    json: {\n      ...originalData,\n      image_base64: imageBase64,\n      image_mime: imageMime,\n      needs_image_fetch: false\n    }\n  });\n}\n\nreturn results;"
+      },
+      "id": "5008f2f3-ac59-4053-ad4e-1e3cf5835c35",
+      "name": "Extract Image Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1408,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst results = [];\n\nconst systemPrompt = `You are an environmental issue analyzer for a city reporting app. Analyze the image and provide a structured assessment.\n\nYour Task: Identify the problem, classify severity, suggest who should handle it.\n\nSeverity Levels:\n- EASY: Small litter, minor graffiti, overgrown grass, small broken items, faded signs\n- MEDIUM: Large trash piles, broken public furniture, potholes under 20cm, damaged fencing, blocked drains, small dead animals, vandalism\n- HIGH: Fallen trees blocking roads, large potholes (safety hazard), exposed wires, gas leaks, flooding, structural damage, hazardous waste, immediate danger\n\nCategories: trash, road_damage, vegetation, vandalism, utilities, infrastructure, safety_hazard, pollution, animal, other\n\nAuthority Types: sanitation, roads_department, parks_department, utilities_electric, utilities_water, utilities_gas, police, emergency_services, animal_control, environmental\n\nRespond in JSON:\n{\"severity\":\"EASY|MEDIUM|HIGH\",\"category\":\"category\",\"problem_detected\":true,\"description\":\"description\",\"specific_issue\":\"type\",\"confidence\":0.0-1.0,\"authority_type\":\"authority\",\"safety_concern\":false,\"estimated_effort\":\"effort\",\"recommended_action\":\"action\",\"notes\":\"notes\"}\n\nIf no problem: {\"severity\":null,\"problem_detected\":false,\"description\":\"No issue detected\",\"notes\":\"what image shows\"}`;\n\nfor (const item of items) {\n  const data = item.json;\n\n  results.push({\n    json: {\n      ...data,\n      ai_request_body: {\n        contents: [{\n          role: 'user',\n          parts: [\n            { text: systemPrompt + '\\n\\nAnalyze this image and describe what you see. Identify any environmental issues.' + (data.location.latitude && data.location.longitude && !(data.location.latitude === 0 && data.location.longitude === 0) ? ' Coordinates: ' + data.location.latitude + ', ' + data.location.longitude + '.' : '') + (data.location.address !== 'Unknown' ? ' Location: ' + data.location.address + '.' : '') + (data.description ? ' Additional context: ' + data.description : '') },\n            { inline_data: { mime_type: data.image_mime || 'image/jpeg', data: data.image_base64 } }\n          ]\n        }],\n        generationConfig: {\n          responseMimeType: 'application/json',\n          maxOutputTokens: 900,\n          temperature: 0.2\n        }\n      }\n    }\n  });\n}\n\nreturn results;"
+      },
+      "id": "53c1ffc1-c13e-41b3-bc65-9bf933987e99",
+      "name": "Prepare AI Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1408,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://generativelanguage.googleapis.com/v1beta/models/' + ($vars.GEMINI_MODEL || 'gemini-2.5-flash') + ':generateContent?key=' + $vars.AI_API_KEY }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.ai_request_body) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "37bf1b0c-8337-47c3-9d1e-03275859ab4f",
+      "name": "AI Vision Analysis",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1120,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst preparedItems = $('Prepare AI Request').all();\nconst results = [];\n\nfunction parseAiJson(raw) {\n  if (typeof raw !== 'string') return null;\n  const t = raw.trim();\n  if (!t) return null;\n\n  // 1) direct JSON\n  try { return JSON.parse(t); } catch (e) {}\n\n  // 2) markdown fenced JSON\n  const fenced = t.match(/```(?:json)?\\s*([\\s\\S]*?)\\s*```/i);\n  if (fenced && fenced[1]) {\n    try { return JSON.parse(fenced[1].trim()); } catch (e) {}\n  }\n\n  // 3) first object-like block\n  const firstBrace = t.indexOf('{');\n  const lastBrace = t.lastIndexOf('}');\n  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {\n    const candidate = t.slice(firstBrace, lastBrace + 1);\n    try { return JSON.parse(candidate); } catch (e) {}\n  }\n\n  return null;\n}\n\nfunction normalizeSeverity(value) {\n  const s = String(value || '').trim().toUpperCase();\n  const map = {\n    LOW: 'EASY',\n    MINOR: 'EASY',\n    MODERATE: 'MEDIUM',\n    NORMAL: 'MEDIUM',\n    SEVERE: 'HIGH',\n    CRITICAL: 'HIGH',\n    URGENT: 'HIGH'\n  };\n  return map[s] || s;\n}\n\nfor (let i = 0; i < items.length; i++) {\n  const item = items[i];\n  const originalData = preparedItems[i]?.json || preparedItems[0]?.json || {};\n  const aiResponse = item.json;\n  const content = aiResponse.candidates?.[0]?.content?.parts?.[0]?.text\n    || aiResponse.choices?.[0]?.message?.content\n    || '';\n\n  const parsed = parseAiJson(content);\n  let aiResult;\n\n  if (parsed) {\n    aiResult = parsed;\n  } else {\n    aiResult = {\n      severity: 'MEDIUM',\n      problem_detected: true,\n      description: content || 'Unable to parse AI response',\n      confidence: 0.4,\n      notes: 'Failed to parse structured response'\n    };\n  }\n\n  const severity = normalizeSeverity(aiResult.severity);\n  const validSeverities = ['EASY', 'MEDIUM', 'HIGH'];\n  aiResult.severity = validSeverities.includes(severity) ? severity : 'MEDIUM';\n\n  if (aiResult.problem_detected === false && !validSeverities.includes(severity)) {\n    aiResult.severity = 'EASY';\n  }\n\n  const priorityScores = { EASY: 3, MEDIUM: 6, HIGH: 10 };\n\n  results.push({\n    json: {\n      ...originalData,\n      ai_result: aiResult,\n      ai_raw_response: content,\n      priority_score: priorityScores[aiResult.severity],\n      processed_by_ai: true,\n      ai_processed_at: new Date().toISOString()\n    }\n  });\n}\n\nreturn results;"
+      },
+      "id": "f5066274-818d-4d6f-9bbd-77ee2dfb7da2",
+      "name": "Parse AI Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -848,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const data = item.json || {};\n  const lat = Number(data.location?.latitude);\n  const lon = Number(data.location?.longitude);\n\n  let resolvedAddress = data.location?.address || 'Unknown';\n\n  const hasCoords = Number.isFinite(lat) && Number.isFinite(lon) && !(lat === 0 && lon === 0);\n\n  if (hasCoords) {\n    try {\n      const geocode = await this.helpers.httpRequest({\n        method: 'GET',\n        url: `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&addressdetails=1`,\n        headers: { 'User-Agent': 'CityReporterApp/1.0' },\n        json: true,\n        timeout: 10000\n      });\n\n      if (geocode?.display_name) {\n        resolvedAddress = geocode.display_name;\n      }\n    } catch (e) {\n      // Keep original address if reverse geocoding fails.\n    }\n  }\n\n  results.push({\n    json: {\n      ...data,\n      location: {\n        latitude: data.location?.latitude,\n        longitude: data.location?.longitude,\n        address: resolvedAddress\n      },\n      geocoded_at: new Date().toISOString()\n    }\n  });\n}\n\nreturn results;"
+      },
+      "id": "2e33f52d-a8a2-4367-ac61-0de11883bd93",
+      "name": "Resolve Address (All Severities)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -688,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": ""
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.ai_result.severity }}",
+                    "rightValue": "EASY",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "EASY"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": ""
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.ai_result.severity }}",
+                    "rightValue": "MEDIUM",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "MEDIUM"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": ""
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.ai_result.severity }}",
+                    "rightValue": "HIGH",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "HIGH"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "5a109a27-7530-491e-ab06-60eed1a2f7e1",
+      "name": "Severity Switch",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        -560,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nreturn items.map(item => {\n  const data = item.json;\n\n  return {\n    json: {\n      ...data,\n      severity: 'EASY',\n      status: 'open',\n      priority_score: 3,\n      notifications: {\n        push_to_nearby_users: true,\n        push_radius_km: 1,\n        add_to_community_feed: true,\n        notify_volunteers: false,\n        notify_authorities: false\n      },\n      resolution: {\n        can_be_community_resolved: true,\n        estimated_volunteers_needed: 1,\n        estimated_time_minutes: 15,\n        requires_verification: true\n      },\n      auto_close_days: 30,\n      callback_url: data.callback_url,\n      db_payload: {\n        issue_id: data.issue_id,\n        severity: 'EASY',\n        category: data.ai_result?.category,\n        ai_description: data.ai_result?.description,\n        address: data.location?.address,\n        image_url: data.image_url,\n        priority_score: 3\n      }\n    }\n  };\n});"
+      },
+      "id": "1d443466-7f00-4bb3-ac82-a308e1507ab9",
+      "name": "EASY Handler",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -288,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nreturn items.map(item => {\n  const data = item.json;\n\n  return {\n    json: {\n      ...data,\n      severity: 'MEDIUM',\n      status: 'in_review',\n      priority_score: 6,\n      notifications: {\n        push_to_nearby_users: true,\n        push_radius_km: 2,\n        add_to_community_feed: true,\n        notify_volunteers: true,\n        notify_authorities: false,\n        notify_municipal_dashboard: true\n      },\n      resolution: {\n        can_be_community_resolved: true,\n        estimated_volunteers_needed: '2-4',\n        estimated_time_minutes: 60,\n        requires_verification: true,\n        requires_before_after_photos: true\n      },\n      escalation: {\n        escalate_to_high_after_hours: 72,\n        escalate_if_reports_count: 3,\n        escalate_if_not_resolved_days: 7\n      },\n      check_for_clusters: true,\n      callback_url: data.callback_url,\n      db_payload: {\n        issue_id: data.issue_id,\n        severity: 'MEDIUM',\n        category: data.ai_result?.category,\n        ai_description: data.ai_result?.description,\n        address: data.location?.address,\n        image_url: data.image_url,\n        priority_score: 6\n      }\n    }\n  };\n});"
+      },
+      "id": "bf1d6987-793a-4b43-9604-11ffb0b83f33",
+      "name": "MEDIUM Handler",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -288,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nreturn items.map(item => {\n  const data = item.json;\n\n  return {\n    json: {\n      ...data,\n      severity: 'HIGH',\n      status: 'in_review',\n      priority_score: 10,\n      notifications: {\n        push_to_nearby_users: true,\n        push_radius_km: 5,\n        push_message: 'CAUTION: Environmental hazard reported nearby',\n        add_to_community_feed: true,\n        notify_volunteers: true,\n        notify_authorities: true,\n        notify_municipal_dashboard: true,\n        send_urgent_alert: true\n      },\n      authority_contact: {\n        required: true,\n        authority_type: data.ai_result?.authority_type,\n        urgency: 'immediate',\n        auto_email: true,\n        auto_call: false,\n        fallback_to_general: true\n      },\n      resolution: {\n        can_be_community_resolved: false,\n        requires_professional: true,\n        requires_verification: true,\n        track_authority_response: true\n      },\n      tracking: {\n        enable_realtime: true,\n        update_interval_minutes: 30,\n        max_response_time_hours: 24,\n        escalate_if_no_response_hours: 4\n      },\n      callback_url: data.callback_url,\n      db_payload: {\n        issue_id: data.issue_id,\n        severity: 'HIGH',\n        category: data.ai_result?.category,\n        ai_description: data.ai_result?.description,\n        address: data.location?.address,\n        image_url: data.image_url,\n        priority_score: 10,\n        authority_type: data.ai_result?.authority_type,\n        safety_concern: data.ai_result?.safety_concern\n      }\n    }\n  };\n});"
+      },
+      "id": "9d5f5704-388d-4253-b608-9e2a42673af9",
+      "name": "HIGH Handler",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -288,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://nominatim.openstreetmap.org/reverse?lat={{ $json.location.latitude }}&lon={{ $json.location.longitude }}&format=json&addressdetails=1",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "CityReporterApp/1.0"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "a76499fc-69e0-4bce-86c9-a3b164d20c5f",
+      "name": "Reverse Geocode",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        0,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst highData = $('HIGH Handler').first().json;\n\n// Optional: set a static Behörden-E-Mail here to skip the Gemini contact lookup (leave '' for AI search).\nconst AUTHORITY_EMAIL_OVERRIDE = '';\n\nconst results = [];\n\nfor (const item of items) {\n  const geocode = item.json;\n  const address = geocode.display_name || highData.location.address;\n  const city = geocode.address?.city || geocode.address?.town || 'Unknown';\n  const country = geocode.address?.country || 'Unknown';\n\n  const base = {\n    geocode_data: geocode,\n    geocode_address: address,\n    geocode_city: city\n  };\n\n  const trimmedOverride = String(AUTHORITY_EMAIL_OVERRIDE || '').trim();\n  if (trimmedOverride) {\n    results.push({\n      json: {\n        ...base,\n        skip_ai_authority_search: true,\n        authority: {\n          authority_name: 'Stadtverwaltung',\n          department: 'Allgemeine Anfragen',\n          email: trimmedOverride,\n          confidence: 1,\n          notes: 'Static email set in Prepare Authority Lookup (AUTHORITY_EMAIL_OVERRIDE)'\n        }\n      }\n    });\n    continue;\n  }\n\n  const prompt = `Find the real contact information for the local government authority responsible for this issue.\n\nIssue type: ${highData.ai_result.category}\nAuthority needed: ${highData.ai_result.authority_type}\nCity: ${city}\nFull address: ${address}\nCountry: ${country}\n\nSearch for the REAL official email address and department name of the municipal authority in ${city} that handles ${highData.ai_result.category} issues.\n\nFor example, if this is in Heilbronn, Germany, look for the Stadtverwaltung Heilbronn department contacts.\n\nRespond in JSON format ONLY:\n{\n  \"authority_name\": \"Official name of the authority/department\",\n  \"department\": \"Specific department\",\n  \"email\": \"real official email address\",\n  \"phone\": \"phone number if known\",\n  \"website\": \"official website URL\",\n  \"confidence\": 0.0-1.0,\n  \"notes\": \"any relevant notes\"\n}`;\n\n  results.push({\n    json: {\n      ...base,\n      skip_ai_authority_search: false,\n      authority_lookup_body: {\n        contents: [{\n          role: 'user',\n          parts: [{ text: 'You are a municipal authority contact finder. Return only valid JSON with real, verifiable government contact information. If you cannot find a specific contact, return the general municipality contact for the city.\\n\\n' + prompt }]\n        }],\n        generationConfig: {\n          responseMimeType: 'application/json',\n          maxOutputTokens: 500,\n          temperature: 0.1\n        }\n      }\n    }\n  });\n}\n\nreturn results;"
+      },
+      "id": "0ced806e-85f3-46bd-9338-05ef2812470f",
+      "name": "Prepare Authority Lookup",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        288,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst out = [];\n\nfor (const item of items) {\n  const j = item.json || {};\n\n  if (j.skip_ai_authority_search && j.authority) {\n    out.push({ json: j });\n    continue;\n  }\n\n  const model = $vars.GEMINI_MODEL || 'gemini-2.5-flash';\n  const key = $vars.AI_API_KEY;\n  if (!key) {\n    throw new Error('Missing n8n variable AI_API_KEY for authority lookup');\n  }\n\n  const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + key;\n\n  const response = await this.helpers.httpRequest({\n    method: 'POST',\n    url,\n    headers: { 'Content-Type': 'application/json' },\n    body: JSON.stringify(j.authority_lookup_body),\n    json: true\n  });\n\n  out.push({ json: response });\n}\n\nreturn out;"
+      },
+      "id": "16bf582f-71c6-42f1-9bff-e320c0b24a71",
+      "name": "AI Authority Search",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst highItems = $('HIGH Handler').all();\nconst lookupItems = $('Prepare Authority Lookup').all();\nconst results = [];\n\nfor (let i = 0; i < items.length; i++) {\n  const itemJson = items[i].json || {};\n  const highData = highItems[i]?.json || highItems[0]?.json || {};\n  const lookupData = lookupItems[i]?.json || lookupItems[0]?.json || {};\n\n  let authority = itemJson.authority;\n\n  if (!authority) {\n    const content = itemJson.candidates?.[0]?.content?.parts?.[0]?.text\n      || itemJson.choices?.[0]?.message?.content\n      || '';\n\n    try {\n      authority = JSON.parse(content);\n    } catch (e) {\n      authority = {\n        authority_name: 'Stadtverwaltung',\n        department: 'Allgemeine Anfragen',\n        email: 'info@' + String(lookupData.geocode_city || 'stadt').toLowerCase().replace(/\\s+/g, '') + '.de',\n        confidence: 0.2,\n        notes: 'AI authority parsing failed, fallback used'\n      };\n    }\n  }\n\n  const address = lookupData.geocode_address || highData.location?.address || 'Unbekannt';\n  const city = lookupData.geocode_city || 'Unbekannt';\n  const country = lookupData.geocode_data?.address?.country || 'Deutschland';\n  const mapsLink = 'https://maps.google.com/?q=' + highData.location?.latitude + ',' + highData.location?.longitude;\n  const desc = String(highData.ai_result?.description || '').replace(/\"/g, \"'\");\n\n  const factsDe = [\n    'Meldungs-ID: ' + highData.issue_id,\n    'Zeitpunkt: ' + highData.timestamp,\n    'Kategorie: ' + (highData.ai_result?.category || 'unbekannt'),\n    'Schweregrad (KI): ' + (highData.ai_result?.severity || 'HIGH'),\n    'Beschreibung: ' + desc,\n    'Sicherheitsrisiko: ' + (highData.ai_result?.safety_concern ? 'ja' : 'nein'),\n    'Ort: ' + address + ', ' + city + ', ' + country,\n    'Koordinaten: ' + highData.location?.latitude + ', ' + highData.location?.longitude,\n    'Karte: ' + mapsLink,\n    'Zustaendigkeit (KI-Vorschlag): ' + (highData.ai_result?.authority_type || 'unbekannt'),\n    'Behoerde: ' + (authority.authority_name || '') + ' - ' + (authority.department || '') + ' - E-Mail: ' + (authority.email || '')\n  ].join('\\n');\n\n  const systemPrompt = 'Du bist ein Assistent fuer eine Buerger-Meldestelle (Stadt/Umwelt). Antworte NUR mit gueltigem JSON (kein Markdown, kein Kommentar).';\n\n  const userPrompt = 'Pruefe die folgende HIGH-Prioritaets-Meldung und entscheide, ob eine formelle E-Mail an die oertliche Behoerde sachlich gerechtfertigt und sinnvoll ist (echtes staedtisches oder anliegerrelevantes Problem, kein Spam, kein offensichtlicher Fehlalarm).\\n\\n' +\n    'Wenn NEIN: setze worth_sending auf false, verfasse skip_reason_de (kurz, deutsch) und lasse email_subject_de sowie email_body_html_de als leere Strings.\\n\\n' +\n    'Wenn JA: setze worth_sending auf true und verfasse eine hoefliche, foermliche E-Mail auf Deutsch (Sie-Form) an die genannte Behoerde: kurzer Betreff, strukturierter Fliesstext, verlinkte Karte, sachlich und respektvoll. Verwende einfaches HTML (<p>, <br>, <strong>, <ul><li>).\\n\\n' +\n    'Antwortformat (exakt diese Schluessel, boolescher Wert fuer worth_sending):\\n' +\n    '{\\n  \"worth_sending\": false,\\n  \"urgency_summary_de\": \"\",\\n  \"skip_reason_de\": \"\",\\n  \"email_subject_de\": \"\",\\n  \"email_body_html_de\": \"\"\\n}\\n\\n' +\n    'Fakten zur Meldung:\\n' + factsDe;\n\n  results.push({\n    json: {\n      issue_id: highData.issue_id,\n      timestamp: highData.timestamp,\n      user_id: highData.user_id,\n      image_url: highData.image_url,\n      location: highData.location,\n      ai_result: highData.ai_result,\n      geocode_address: address,\n      geocode_city: city,\n      authority,\n      mapsLink,\n      german_email_ai_body: {\n        contents: [{\n          role: 'user',\n          parts: [{ text: systemPrompt + '\\n\\n' + userPrompt }]\n        }],\n        generationConfig: {\n          responseMimeType: 'application/json',\n          maxOutputTokens: 2048,\n          temperature: 0.25\n        }\n      }\n    }\n  });\n}\n\nreturn results;"
+      },
+      "id": "98e0468c-7099-4c62-8d6d-f82cfbf77254",
+      "name": "Prepare German Email AI",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        688,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://generativelanguage.googleapis.com/v1beta/models/' + ($vars.GEMINI_MODEL || 'gemini-2.5-flash') + ':generateContent?key=' + $vars.AI_API_KEY }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.german_email_ai_body) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "ad9ae8f7-d0a3-47fe-b8c3-aec82fab72a9",
+      "name": "AI Agent — German Authority Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        848,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const preparedItems = $('Prepare German Email AI').all();\nconst geminiItems = $input.all();\nconst results = [];\n\nfor (let i = 0; i < geminiItems.length; i++) {\n  const prep = preparedItems[i]?.json || {};\n  const gemini = geminiItems[i].json;\n  const text = gemini.candidates?.[0]?.content?.parts?.[0]?.text\n    || gemini.choices?.[0]?.message?.content\n    || '';\n\n  let draft = {};\n  try {\n    draft = JSON.parse(text);\n  } catch (e) {\n    draft = {\n      worth_sending: true,\n      urgency_summary_de: 'KI-Antwort nicht parsebar — Fallback.',\n      skip_reason_de: '',\n      email_subject_de: 'Meldung ' + prep.issue_id + ' — bitte prüfen',\n      email_body_html_de: '<p>Die automatische Formulierung ist fehlgeschlagen. Bitte Daten im System prüfen.</p>'\n    };\n  }\n\n  const worth = draft.worth_sending === true;\n  const authorityEmail = prep.authority?.email || '';\n  const city = prep.geocode_city || '';\n\n  if (!worth) {\n    const reason = String(draft.skip_reason_de || 'Kein Versand empfohlen.').replace(/</g, '&lt;');\n    results.push({\n      json: {\n        ...prep,\n        email_subject: '[Kein Behörden-Versand] ' + prep.issue_id,\n        email_html: '<p><strong>KI hat keinen Behördenversand empfohlen.</strong></p><p>' + reason + '</p>',\n        authority_email: authorityEmail || null,\n        email_status: 'skipped_not_worth_sending',\n        ai_email_draft: draft\n      }\n    });\n  } else {\n    results.push({\n      json: {\n        ...prep,\n        email_subject: draft.email_subject_de || ('Stadtmeldung ' + prep.issue_id + ' (' + city + ')'),\n        email_html: draft.email_body_html_de || '<p>(Kein Inhalt)</p>',\n        authority_email: authorityEmail,\n        email_status: 'ready_to_send',\n        ai_email_draft: draft\n      }\n    });\n  }\n}\n\nreturn results;"
+      },
+      "id": "07032fb0-3cc7-4751-a8d5-d13a2cd1bf1e",
+      "name": "Merge German AI Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1008,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nreturn items.map(item => {\n  const data = item.json;\n  const skipped = data.email_status === 'skipped_not_worth_sending';\n  console.log(skipped ? '[EMAIL] Skipped by AI review: ' + data.issue_id : '[EMAIL] Would send to: ' + data.authority_email);\n  console.log('[EMAIL] Subject: ' + data.email_subject);\n\n  return {\n    json: {\n      ...data,\n      email_status: skipped ? 'skipped_not_worth_sending' : 'logged_not_sent',\n      email_to: data.authority_email,\n      email_subject: data.email_subject,\n      email_html: data.email_html,\n      email_note: skipped\n        ? 'AI decided this case does not warrant an authority email'\n        : 'Replace this node with an Email Send node and configure SMTP credentials to send real emails'\n    }\n  };\n});"
+      },
+      "id": "9feb1291-c87e-4bf3-8b59-8460934cf418",
+      "name": "Send Authority Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1184,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.callback_url || $vars.DB_API_ENDPOINT }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $vars.DB_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.db_payload) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "f61e0282-03f3-4720-823e-eedcb1f6a7e5",
+      "name": "Save to Database",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nreturn items.map(item => {\n  const data = item.json;\n\n  return {\n    json: {\n      success: true,\n      issue_id: data.issue_id,\n      user_id: data.user_id,\n      severity: data.severity || data.ai_result?.severity,\n      status: data.status,\n      category: data.ai_result?.category,\n      priority_score: data.priority_score,\n      location: data.location,\n      timestamp: data.timestamp,\n      message: 'Issue reported and processed',\n      processed_at: new Date().toISOString()\n    }\n  };\n});"
+      },
+      "id": "e6e6a790-94b7-4d27-a46c-ed6054004b94",
+      "name": "Prepare Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        304
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "011baa4c-2cde-40d6-b434-fb9ff6d4e270",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        -2400,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nreturn items.map(item => {\n  const error = item.json;\n  const execution = error.execution || {};\n  const lastNode = execution.lastNodeExecuted || 'unknown';\n\n  return {\n    json: {\n      success: false,\n      error: error.message || error.error?.message || 'Unknown processing error',\n      failed_node: lastNode,\n      code: 'PROCESSING_ERROR',\n      timestamp: new Date().toISOString()\n    }\n  };\n});"
+      },
+      "id": "48ea4447-6ae4-42a3-91ef-c030321b0e58",
+      "name": "Handle Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2128,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "options": {
+          "responseCode": 500
+        }
+      },
+      "id": "11517b5b-6d7b-4e27-9a66-ffdcefd4bb84",
+      "name": "Error Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -1840,
+        800
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "Has Image URL?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Image URL?": {
+      "main": [
+        [
+          {
+            "node": "Fetch Image",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare AI Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Image": {
+      "main": [
+        [
+          {
+            "node": "Extract Image Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Image Data": {
+      "main": [
+        [
+          {
+            "node": "Prepare AI Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare AI Request": {
+      "main": [
+        [
+          {
+            "node": "AI Vision Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Vision Analysis": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Response": {
+      "main": [
+        [
+          {
+            "node": "Resolve Address (All Severities)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Severity Switch": {
+      "main": [
+        [
+          {
+            "node": "EASY Handler",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "MEDIUM Handler",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HIGH Handler",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "MEDIUM Handler",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EASY Handler": {
+      "main": [
+        [
+          {
+            "node": "Save to Database",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Prepare Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MEDIUM Handler": {
+      "main": [
+        [
+          {
+            "node": "Save to Database",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Prepare Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HIGH Handler": {
+      "main": [
+        [
+          {
+            "node": "Reverse Geocode",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Save to Database",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Prepare Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reverse Geocode": {
+      "main": [
+        [
+          {
+            "node": "Prepare Authority Lookup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Authority Lookup": {
+      "main": [
+        [
+          {
+            "node": "AI Authority Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Authority Search": {
+      "main": [
+        [
+          {
+            "node": "Prepare German Email AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Handle Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle Error": {
+      "main": [
+        [
+          {
+            "node": "Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare German Email AI": {
+      "main": [
+        [
+          {
+            "node": "AI Agent — German Authority Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent — German Authority Email": {
+      "main": [
+        [
+          {
+            "node": "Merge German AI Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge German AI Email": {
+      "main": [
+        [
+          {
+            "node": "Send Authority Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Address (All Severities)": {
+      "main": [
+        [
+          {
+            "node": "Severity Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "3489b8d7-a1de-4b07-8b44-e89bc74f5fcc",
+  "meta": {
+    "instanceId": "0e4cecb07af3d4a5b906c3ff22b2fbead2da0ce5c74f7929c6e94e6b325e963d"
+  },
+  "id": "gnnVm5OODbz5oADH",
+  "tags": []
+}
